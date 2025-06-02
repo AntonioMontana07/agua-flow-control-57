@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Sidebar from '@/components/layout/Sidebar';
 import ResumenSection from '@/components/dashboard/ResumenSection';
 import InventarioSection from '@/components/dashboard/InventarioSection';
@@ -44,26 +45,34 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection} 
-      />
-      
-      <main className="flex-1 overflow-auto">
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Mostrar alertas de inventario solo si no han sido descartadas */}
-          {!alertsDismissed && (
-            <InventoryAlerts 
-              productos={productos}
-              onDismiss={() => setAlertsDismissed(true)}
-            />
-          )}
-          
-          {renderContent()}
-        </div>
-      </main>
-    </div>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <Sidebar 
+          activeSection={activeSection} 
+          onSectionChange={setActiveSection} 
+        />
+        
+        <main className="flex-1 overflow-auto">
+          <div className="p-4 sm:p-6 lg:p-8">
+            {/* Header con botón de menú para móvil */}
+            <div className="flex items-center gap-4 mb-4 md:hidden">
+              <SidebarTrigger />
+              <h1 className="text-lg font-semibold">Dashboard</h1>
+            </div>
+            
+            {/* Mostrar alertas de inventario solo si no han sido descartadas */}
+            {!alertsDismissed && (
+              <InventoryAlerts 
+                productos={productos}
+                onDismiss={() => setAlertsDismissed(true)}
+              />
+            )}
+            
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+    </SidebarProvider>
   );
 };
 

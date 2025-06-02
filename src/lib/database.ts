@@ -22,6 +22,8 @@ export interface Cliente {
 
 export interface Compra {
   id?: number;
+  productoId: number;
+  productoNombre: string;
   cantidad: number;
   fecha: string;
   descripcion: string;

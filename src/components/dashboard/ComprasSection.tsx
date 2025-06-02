@@ -56,7 +56,7 @@ const ComprasSection: React.FC = () => {
   };
 
   const handleDeleteCompra = async (id: number) => {
-    if (confirm('¿Estás seguro de que deseas eliminar esta compra?')) {
+    if (confirm('¿Estás seguro de que deseas eliminar esta compra? Esto también revertirá la cantidad del inventario.')) {
       try {
         await CompraService.eliminar(id);
         await cargarCompras();
@@ -116,7 +116,7 @@ const ComprasSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCantidad}</div>
-            <p className="text-xs text-muted-foreground">Garrafones comprados</p>
+            <p className="text-xs text-muted-foreground">Unidades compradas</p>
           </CardContent>
         </Card>
 
@@ -142,6 +142,7 @@ const ComprasSection: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
+                <TableHead>Producto</TableHead>
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Precio Unitario</TableHead>
                 <TableHead>Total</TableHead>
@@ -156,6 +157,9 @@ const ComprasSection: React.FC = () => {
                     {new Date(compra.fecha).toLocaleDateString('es-ES')}
                   </TableCell>
                   <TableCell className="font-medium">
+                    {compra.productoNombre}
+                  </TableCell>
+                  <TableCell>
                     {compra.cantidad} unidades
                   </TableCell>
                   <TableCell>S/{compra.precio.toFixed(2)}</TableCell>

@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Compra } from '@/lib/database';
+import { Compra, Producto } from '@/lib/database';
+import { ProductoService } from '@/services/ProductoService';
 
 interface CompraFormProps {
   onSubmit: (compra: any) => void;
@@ -21,7 +23,9 @@ interface CompraFormProps {
 }
 
 const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData, isEditing = false }) => {
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [formData, setFormData] = useState({
+    productoId: initialData?.productoId?.toString() || '',
     cantidad: initialData?.cantidad?.toString() || '',
     descripcion: initialData?.descripcion || '',
     precio: initialData?.precio?.toString() || ''
@@ -29,6 +33,19 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
   const [fecha, setFecha] = useState<Date>(
     initialData?.fecha ? new Date(initialData.fecha) : new Date()
   );
+
+  useEffect(() => {
+    cargarProductos();
+  }, []);
+
+  const cargarProductos = async () => {
+    try {
+      const productosData = await ProductoService.obtenerTodos();
+      setProductos(productosData);
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -38,15 +55,32 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
     }));
   };
 
+  const handleProductoChange = (productoId: string) => {
+    const producto = productos.find(p => p.id?.toString() === productoId);
+    setFormData(prev => ({
+      ...prev,
+      productoId,
+      precio: producto ? producto.precio.toString() : ''
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.cantidad || !fecha || !formData.precio) {
+    if (!formData.productoId || !formData.cantidad || !fecha || !formData.precio) {
       alert('Por favor, complete todos los campos obligatorios');
       return;
     }
 
+    const producto = productos.find(p => p.id?.toString() === formData.productoId);
+    if (!producto) {
+      alert('Producto no encontrado');
+      return;
+    }
+
     const compra = {
+      productoId: parseInt(formData.productoId),
+      productoNombre: producto.nombre,
       cantidad: parseInt(formData.cantidad),
       fecha: fecha.toISOString().split('T')[0],
       descripcion: formData.descripcion,
@@ -55,6 +89,8 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
 
     onSubmit(compra);
   };
+
+  const productoSeleccionado = productos.find(p => p.id?.toString() === formData.productoId);
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -70,14 +106,34 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="cantidad">Cantidad de Garrafones *</Label>
+              <Label htmlFor="producto">Producto *</Label>
+              <Select 
+                value={formData.productoId} 
+                onValueChange={handleProductoChange}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productos.map((producto) => (
+                    <SelectItem key={producto.id} value={producto.id!.toString()}>
+                      {producto.nombre} - Stock: {producto.cantidad}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cantidad">Cantidad *</Label>
               <Input
                 id="cantidad"
                 name="cantidad"
                 type="number"
                 value={formData.cantidad}
                 onChange={handleChange}
-                placeholder="Número de garrafones"
+                placeholder="Cantidad a comprar"
                 min="1"
                 required
               />
@@ -110,7 +166,7 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
               </Popover>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2">
               <Label htmlFor="precio">Precio por Unidad (S/) *</Label>
               <Input
                 id="precio"
@@ -119,12 +175,20 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
                 step="0.01"
                 value={formData.precio}
                 onChange={handleChange}
-                placeholder="15.00"
+                placeholder="Precio unitario"
                 min="0"
                 required
               />
             </div>
           </div>
+
+          {productoSeleccionado && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm font-medium">Producto seleccionado: {productoSeleccionado.nombre}</p>
+              <p className="text-sm text-muted-foreground">Stock actual: {productoSeleccionado.cantidad} unidades</p>
+              <p className="text-sm text-muted-foreground">Precio sugerido: S/{productoSeleccionado.precio}</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="descripcion">Descripción (Opcional)</Label>

@@ -26,36 +26,8 @@ export class ClienteService {
     await dbManager.delete('clientes', id);
   }
 
+  // Método eliminado - ya no inicializa datos de prueba
   static async inicializarDatosPrueba(): Promise<void> {
-    const clientes = await this.obtenerTodos();
-    if (clientes.length === 0) {
-      const clientesIniciales = [
-        {
-          nombre: 'Juan Pérez',
-          direccion: 'Calle Principal #123, Colonia Centro',
-          telefono: '555-0123',
-          descripcion: 'Cliente frecuente',
-          fechaRegistro: new Date().toISOString().split('T')[0]
-        },
-        {
-          nombre: 'María González',
-          direccion: 'Av. Reforma #456, Colonia Norte',
-          telefono: '555-0456',
-          descripcion: '',
-          fechaRegistro: new Date().toISOString().split('T')[0]
-        },
-        {
-          nombre: 'Carlos López',
-          direccion: 'Calle Secundaria #789',
-          telefono: '555-0789',
-          descripcion: '',
-          fechaRegistro: new Date().toISOString().split('T')[0]
-        }
-      ];
-
-      for (const cliente of clientesIniciales) {
-        await this.crear(cliente);
-      }
-    }
+    console.log('ClienteService funciona sin datos de prueba - aplicación completamente limpia');
   }
 }

@@ -10,8 +10,9 @@ import { ProductoService } from '@/services/ProductoService';
 import { Producto } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
 
-// Interface para productos con estado calculado
-interface ProductoConEstado extends Producto {
+// Interface para productos con estado calculado y id requerido
+interface ProductoConEstado extends Omit<Producto, 'id'> {
+  id: number;
   estado: string;
 }
 
@@ -29,11 +30,14 @@ const InventarioSection: React.FC = () => {
   const cargarProductos = async () => {
     try {
       const productosData = await ProductoService.obtenerTodos();
-      const productosConEstado: ProductoConEstado[] = productosData.map(producto => ({
-        ...producto,
-        estado: producto.cantidad < producto.minimo ? 'Crítico' : 
-               producto.cantidad < producto.minimo * 2 ? 'Bajo' : 'Disponible'
-      }));
+      const productosConEstado: ProductoConEstado[] = productosData
+        .filter(producto => producto.id !== undefined)
+        .map(producto => ({
+          ...producto,
+          id: producto.id!,
+          estado: producto.cantidad < producto.minimo ? 'Crítico' : 
+                 producto.cantidad < producto.minimo * 2 ? 'Bajo' : 'Disponible'
+        }));
       setProductos(productosConEstado);
     } catch (error) {
       console.error('Error al cargar productos:', error);
@@ -110,7 +114,7 @@ const InventarioSection: React.FC = () => {
         toast({
           title: "Error",
           description: "No se pudo eliminar el producto",
-          variant: "destructive"
+          variant: "destructiva"
         });
       }
     }
@@ -211,7 +215,7 @@ const InventarioSection: React.FC = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => producto.id && handleDeleteProduct(producto.id)}
+                          onClick={() => handleDeleteProduct(producto.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

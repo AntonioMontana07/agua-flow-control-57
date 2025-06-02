@@ -26,28 +26,28 @@ const InventoryAlerts: React.FC<InventoryAlertsProps> = ({ productos, onDismiss 
   }
 
   return (
-    <div className="space-y-4 mb-6">
+    <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
       {productosCriticos.length > 0 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>¡Stock Crítico!</AlertTitle>
+          <AlertTitle className="text-sm sm:text-base">¡Stock Crítico!</AlertTitle>
           <AlertDescription>
             <div className="space-y-2">
-              <p>Los siguientes productos necesitan reabastecimiento urgente:</p>
-              <ul className="list-disc list-inside space-y-1">
+              <p className="text-xs sm:text-sm">Los siguientes productos necesitan reabastecimiento urgente:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm">
                 {productosCriticos.map(producto => (
                   <li key={producto.id}>
                     <strong>{producto.nombre}</strong>: {producto.cantidad} unidades 
-                    (mínimo: {producto.minimo})
+                    (mín: {producto.minimo})
                   </li>
                 ))}
               </ul>
-              <div className="flex gap-2 mt-3">
-                <Button size="sm" variant="outline">
+              <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                <Button size="sm" variant="outline" className="text-xs">
                   Reabastecer Ahora
                 </Button>
                 {onDismiss && (
-                  <Button size="sm" variant="ghost" onClick={onDismiss}>
+                  <Button size="sm" variant="ghost" onClick={onDismiss} className="text-xs">
                     Recordar después
                   </Button>
                 )}
@@ -60,15 +60,15 @@ const InventoryAlerts: React.FC<InventoryAlertsProps> = ({ productos, onDismiss 
       {productosBajos.length > 0 && (
         <Alert>
           <Package className="h-4 w-4" />
-          <AlertTitle>Stock Bajo</AlertTitle>
+          <AlertTitle className="text-sm sm:text-base">Stock Bajo</AlertTitle>
           <AlertDescription>
             <div className="space-y-2">
-              <p>Los siguientes productos están por agotarse:</p>
-              <ul className="list-disc list-inside space-y-1">
+              <p className="text-xs sm:text-sm">Los siguientes productos están por agotarse:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm">
                 {productosBajos.map(producto => (
                   <li key={producto.id}>
                     <strong>{producto.nombre}</strong>: {producto.cantidad} unidades 
-                    (mínimo: {producto.minimo})
+                    (mín: {producto.minimo})
                   </li>
                 ))}
               </ul>

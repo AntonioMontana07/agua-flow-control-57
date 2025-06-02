@@ -44,14 +44,14 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar 
         activeSection={activeSection} 
         onSectionChange={setActiveSection} 
       />
       
       <main className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Mostrar alertas de inventario solo si no han sido descartadas */}
           {!alertsDismissed && (
             <InventoryAlerts 

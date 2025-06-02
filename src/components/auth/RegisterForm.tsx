@@ -45,22 +45,34 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
     setLoading(true);
 
-    const success = await register(email, password, name);
-    
-    if (success) {
+    try {
+      console.log('Iniciando proceso de registro...');
+      const success = await register(email, password, name);
+      
+      if (success) {
+        console.log('Registro completado exitosamente');
+        toast({
+          title: "¡Registro exitoso!",
+          description: "Tu cuenta ha sido creada correctamente y ya estás conectado",
+        });
+      } else {
+        console.log('Error en registro: email ya existe');
+        toast({
+          title: "Error de registro",
+          description: "Este email ya está registrado. Intenta con otro email o inicia sesión.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error inesperado en registro:', error);
       toast({
-        title: "¡Registro exitoso!",
-        description: "Tu cuenta ha sido creada correctamente y ya estás conectado",
-      });
-    } else {
-      toast({
-        title: "Error de registro",
-        description: "Este email ya está registrado. Intenta con otro email o inicia sesión.",
+        title: "Error de conexión",
+        description: "Hubo un problema al crear tu cuenta. Por favor intenta de nuevo.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (

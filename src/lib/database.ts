@@ -93,52 +93,59 @@ class DatabaseManager {
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Primero, intentar abrir la base de datos sin especificar versión para obtener la versión actual
-      const request = indexedDB.open(this.dbName);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const db = request.result;
-        this.version = db.version;
-        console.log('Versión actual de la base de datos:', this.version);
-        db.close();
+      try {
+        console.log('Iniciando conexión a IndexedDB...');
         
-        // Ahora abrir con la versión correcta
-        this.openWithCorrectVersion(resolve, reject);
-      };
+        // Cerrar conexión existente si la hay
+        if (this.db) {
+          this.db.close();
+          this.db = null;
+        }
 
-      request.onupgradeneeded = () => {
-        // Si se ejecuta esto, significa que la base de datos no existe
-        // Cerrar y abrir con versión 1
-        this.version = 1;
-        request.result.close();
-        this.openWithCorrectVersion(resolve, reject);
-      };
+        const request = indexedDB.open(this.dbName);
+
+        request.onerror = (event) => {
+          console.error('Error al abrir IndexedDB:', request.error);
+          reject(new Error('Error de conexión a la base de datos local'));
+        };
+
+        request.onsuccess = (event) => {
+          this.db = request.result;
+          this.version = this.db.version;
+          console.log('Base de datos abierta correctamente, versión:', this.version);
+          
+          // Configurar manejador de errores para la conexión
+          this.db.onerror = (errorEvent) => {
+            console.error('Error en base de datos:', errorEvent);
+          };
+
+          resolve();
+        };
+
+        request.onupgradeneeded = (event) => {
+          console.log('Actualizando estructura de base de datos...');
+          this.db = request.result;
+          this.version = this.db.version;
+          console.log('Base de datos actualizada a versión:', this.version);
+        };
+
+      } catch (error) {
+        console.error('Error al inicializar IndexedDB:', error);
+        reject(new Error('Error al acceder a la base de datos local'));
+      }
     });
   }
 
-  private openWithCorrectVersion(resolve: () => void, reject: (error: any) => void): void {
-    const request = indexedDB.open(this.dbName, this.version);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      this.db = request.result;
-      console.log('Base de datos abierta correctamente con versión:', this.version);
-      resolve();
-    };
-
-    request.onupgradeneeded = (event) => {
-      console.log('Actualizando base de datos...');
-      // Este caso solo debería ejecutarse si realmente necesitamos crear stores nuevos
-    };
-  }
-
   private async createStoreIfNotExists(storeName: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     
     const userStoreName = this.getStoreName(storeName);
     
     if (!this.db.objectStoreNames.contains(userStoreName)) {
+      console.log('Creando store:', userStoreName);
+      
       // Cerrar la conexión actual
       this.db.close();
       
@@ -148,38 +155,47 @@ class DatabaseManager {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open(this.dbName, this.version);
         
-        request.onerror = () => reject(request.error);
+        request.onerror = () => {
+          console.error('Error al crear store:', request.error);
+          reject(new Error('Error al crear estructura de datos'));
+        };
+        
         request.onsuccess = () => {
           this.db = request.result;
-          console.log('Store creado, nueva versión:', this.version);
+          console.log('Store creado exitosamente, nueva versión:', this.version);
           resolve();
         };
         
         request.onupgradeneeded = (event) => {
           const db = (event.target as IDBOpenDBRequest).result;
           
-          // Crear el store específico del usuario
-          if (!db.objectStoreNames.contains(userStoreName)) {
-            const store = db.createObjectStore(userStoreName, { keyPath: 'id', autoIncrement: true });
-            
-            // Crear índices según el tipo de store
-            if (storeName === 'productos') {
-              store.createIndex('nombre', 'nombre', { unique: false });
-            } else if (storeName === 'clientes') {
-              store.createIndex('nombre', 'nombre', { unique: false });
-            } else if (storeName === 'compras') {
-              store.createIndex('fecha', 'fecha', { unique: false });
-            } else if (storeName === 'ventas') {
-              store.createIndex('fecha', 'fecha', { unique: false });
-              store.createIndex('clienteId', 'clienteId', { unique: false });
-            } else if (storeName === 'gastos') {
-              store.createIndex('fecha', 'fecha', { unique: false });
-            } else if (storeName === 'pedidos') {
-              store.createIndex('fecha', 'fecha', { unique: false });
-              store.createIndex('clienteId', 'clienteId', { unique: false });
+          try {
+            // Crear el store específico del usuario
+            if (!db.objectStoreNames.contains(userStoreName)) {
+              const store = db.createObjectStore(userStoreName, { keyPath: 'id', autoIncrement: true });
+              
+              // Crear índices según el tipo de store
+              if (storeName === 'productos') {
+                store.createIndex('nombre', 'nombre', { unique: false });
+              } else if (storeName === 'clientes') {
+                store.createIndex('nombre', 'nombre', { unique: false });
+              } else if (storeName === 'compras') {
+                store.createIndex('fecha', 'fecha', { unique: false });
+              } else if (storeName === 'ventas') {
+                store.createIndex('fecha', 'fecha', { unique: false });
+                store.createIndex('clienteId', 'clienteId', { unique: false });
+              } else if (storeName === 'gastos') {
+                store.createIndex('fecha', 'fecha', { unique: false });
+              } else if (storeName === 'pedidos') {
+                store.createIndex('fecha', 'fecha', { unique: false });
+                store.createIndex('clienteId', 'clienteId', { unique: false });
+              }
+              
+              console.log('Store e índices creados:', userStoreName);
             }
-            
-            console.log('Store creado:', userStoreName);
+          } catch (storeError) {
+            console.error('Error al crear store en upgrade:', storeError);
+            reject(new Error('Error al configurar estructura de datos'));
           }
         };
       });
@@ -187,83 +203,133 @@ class DatabaseManager {
   }
 
   async add<T>(storeName: string, data: T): Promise<number> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     
-    await this.createStoreIfNotExists(storeName);
-    const userStoreName = this.getStoreName(storeName);
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([userStoreName], 'readwrite');
-      const store = transaction.objectStore(userStoreName);
-      const request = store.add(data);
+    try {
+      await this.createStoreIfNotExists(storeName);
+      const userStoreName = this.getStoreName(storeName);
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([userStoreName], 'readwrite');
+        const store = transaction.objectStore(userStoreName);
+        const request = store.add(data);
 
-      request.onsuccess = () => resolve(request.result as number);
-      request.onerror = () => reject(request.error);
-    });
+        request.onsuccess = () => resolve(request.result as number);
+        request.onerror = () => {
+          console.error('Error al agregar datos:', request.error);
+          reject(new Error('Error al guardar datos'));
+        };
+      });
+    } catch (error) {
+      console.error('Error en add operation:', error);
+      throw new Error('Error al procesar datos');
+    }
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     
-    await this.createStoreIfNotExists(storeName);
-    const userStoreName = this.getStoreName(storeName);
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([userStoreName], 'readonly');
-      const store = transaction.objectStore(userStoreName);
-      const request = store.getAll();
+    try {
+      await this.createStoreIfNotExists(storeName);
+      const userStoreName = this.getStoreName(storeName);
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([userStoreName], 'readonly');
+        const store = transaction.objectStore(userStoreName);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => {
+          console.error('Error al obtener datos:', request.error);
+          reject(new Error('Error al cargar datos'));
+        };
+      });
+    } catch (error) {
+      console.error('Error en getAll operation:', error);
+      return []; // Retornar array vacío en caso de error
+    }
   }
 
   async getById<T>(storeName: string, id: number): Promise<T | undefined> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     
-    await this.createStoreIfNotExists(storeName);
-    const userStoreName = this.getStoreName(storeName);
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([userStoreName], 'readonly');
-      const store = transaction.objectStore(userStoreName);
-      const request = store.get(id);
+    try {
+      await this.createStoreIfNotExists(storeName);
+      const userStoreName = this.getStoreName(storeName);
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([userStoreName], 'readonly');
+        const store = transaction.objectStore(userStoreName);
+        const request = store.get(id);
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => {
+          console.error('Error al obtener elemento:', request.error);
+          reject(new Error('Error al cargar elemento'));
+        };
+      });
+    } catch (error) {
+      console.error('Error en getById operation:', error);
+      return undefined;
+    }
   }
 
   async update<T>(storeName: string, data: T): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     
-    await this.createStoreIfNotExists(storeName);
-    const userStoreName = this.getStoreName(storeName);
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([userStoreName], 'readwrite');
-      const store = transaction.objectStore(userStoreName);
-      const request = store.put(data);
+    try {
+      await this.createStoreIfNotExists(storeName);
+      const userStoreName = this.getStoreName(storeName);
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([userStoreName], 'readwrite');
+        const store = transaction.objectStore(userStoreName);
+        const request = store.put(data);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+        request.onsuccess = () => resolve();
+        request.onerror = () => {
+          console.error('Error al actualizar datos:', request.error);
+          reject(new Error('Error al actualizar datos'));
+        };
+      });
+    } catch (error) {
+      console.error('Error en update operation:', error);
+      throw new Error('Error al procesar actualización');
+    }
   }
 
   async delete(storeName: string, id: number): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
     
-    await this.createStoreIfNotExists(storeName);
-    const userStoreName = this.getStoreName(storeName);
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([userStoreName], 'readwrite');
-      const store = transaction.objectStore(userStoreName);
-      const request = store.delete(id);
+    try {
+      await this.createStoreIfNotExists(storeName);
+      const userStoreName = this.getStoreName(storeName);
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([userStoreName], 'readwrite');
+        const store = transaction.objectStore(userStoreName);
+        const request = store.delete(id);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+        request.onsuccess = () => resolve();
+        request.onerror = () => {
+          console.error('Error al eliminar datos:', request.error);
+          reject(new Error('Error al eliminar elemento'));
+        };
+      });
+    } catch (error) {
+      console.error('Error en delete operation:', error);
+      throw new Error('Error al procesar eliminación');
+    }
   }
 }
 

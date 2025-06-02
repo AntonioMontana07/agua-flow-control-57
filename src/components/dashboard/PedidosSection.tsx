@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Share, Trash2, Package, Calendar, Clock } from 'lucide-react';
+import { Share, Trash2, Package, Calendar, Clock, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { PedidoService, Pedido } from '@/services/PedidoService';
 import PedidoForm from './PedidoForm';
@@ -12,6 +12,7 @@ import PedidoForm from './PedidoForm';
 const PedidosSection: React.FC = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     cargarPedidos();
@@ -32,6 +33,135 @@ const PedidosSection: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generarImagenPedido = async (pedido: Pedido) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Configurar canvas
+    canvas.width = 600;
+    canvas.height = 800;
+
+    // Fondo blanco
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Configurar texto
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+
+    // Título BIOX
+    ctx.font = 'bold 32px Arial';
+    ctx.fillStyle = '#2563eb';
+    ctx.fillText('🌟 BIOX - SISTEMA DE REPARTO 🌟', 300, 50);
+
+    // Subtítulo
+    ctx.font = 'bold 24px Arial';
+    ctx.fillStyle = '#000000';
+    ctx.fillText('🛒 PEDIDO DE ENTREGA', 300, 100);
+
+    // Línea separadora
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(50, 120);
+    ctx.lineTo(550, 120);
+    ctx.stroke();
+
+    // Información del cliente
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#1f2937';
+    ctx.fillText('👤 CLIENTE', 50, 160);
+    
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#374151';
+    ctx.fillText(pedido.clienteNombre, 50, 190);
+    ctx.fillText(`📍 ${pedido.clienteDireccion}`, 50, 220);
+
+    // Línea separadora
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath();
+    ctx.moveTo(50, 240);
+    ctx.lineTo(550, 240);
+    ctx.stroke();
+
+    // Detalles del pedido
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#1f2937';
+    ctx.fillText('📦 DETALLES DEL PEDIDO', 50, 280);
+
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#374151';
+    ctx.fillText(`🏷️ Producto: ${pedido.productoNombre}`, 50, 310);
+    ctx.fillText(`📊 Cantidad: ${pedido.cantidad} unidades`, 50, 340);
+    ctx.fillText(`💰 Precio unitario: S/${pedido.precio.toFixed(2)}`, 50, 370);
+    
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#059669';
+    ctx.fillText(`💵 TOTAL: S/${pedido.total.toFixed(2)}`, 50, 410);
+
+    // Línea separadora
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath();
+    ctx.moveTo(50, 430);
+    ctx.lineTo(550, 430);
+    ctx.stroke();
+
+    // Programación de entrega
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#1f2937';
+    ctx.fillText('📅 PROGRAMACIÓN DE ENTREGA', 50, 470);
+
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#374151';
+    const fechaEntrega = new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    ctx.fillText(`🗓️ Fecha: ${fechaEntrega}`, 50, 500);
+    ctx.fillText(`🕐 Hora: ${pedido.horaEntrega}`, 50, 530);
+
+    // Línea separadora
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath();
+    ctx.moveTo(50, 550);
+    ctx.lineTo(550, 550);
+    ctx.stroke();
+
+    // Información de registro
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#6b7280';
+    const fechaRegistro = new Date(pedido.fecha).toLocaleDateString('es-ES');
+    ctx.fillText(`📋 Pedido registrado el ${fechaRegistro} a las ${pedido.hora}`, 50, 590);
+
+    // Footer
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#2563eb';
+    ctx.fillText('✨ BIOX - Gestión eficiente de pedidos ✨', 300, 650);
+
+    // Marco decorativo
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+    // Descargar imagen
+    const link = document.createElement('a');
+    link.download = `pedido-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+
+    toast({
+      title: "Imagen generada",
+      description: "La imagen del pedido se ha descargado correctamente"
+    });
   };
 
   const compartirPorWhatsApp = (pedido: Pedido) => {
@@ -108,6 +238,8 @@ ${pedido.clienteNombre}
 
   return (
     <div className="space-y-6">
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-primary">Pedidos BIOX</h2>
@@ -214,13 +346,23 @@ ${pedido.clienteNombre}
                           size="sm"
                           variant="outline"
                           onClick={() => compartirPorWhatsApp(pedido)}
+                          title="Compartir por WhatsApp"
                         >
                           <Share className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => generarImagenPedido(pedido)}
+                          title="Descargar como imagen"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => eliminarPedido(pedido.id!)}
+                          title="Eliminar pedido"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

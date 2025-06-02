@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/layout/Sidebar';
 import ResumenSection from '@/components/dashboard/ResumenSection';
 import InventarioSection from '@/components/dashboard/InventarioSection';
+import ComprasSection from '@/components/dashboard/ComprasSection';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -16,12 +17,7 @@ const Dashboard: React.FC = () => {
       case 'inventario':
         return <InventarioSection />;
       case 'compras':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-primary">Compras</h2>
-            <p className="text-muted-foreground">Gestión de compras y pedidos - Próximamente</p>
-          </div>
-        );
+        return <ComprasSection />;
       case 'ventas':
         return (
           <div className="space-y-6">

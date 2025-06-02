@@ -2,7 +2,7 @@
 import { dbManager, Cliente } from '@/lib/database';
 
 export class ClienteService {
-  static async crear(cliente: Omit<Cliente, 'id'>): Promise<number> {
+  static async crear(cliente: Omit<Cliente, 'id' | 'fechaRegistro'>): Promise<number> {
     const nuevoCliente: Cliente = {
       ...cliente,
       fechaRegistro: new Date().toISOString().split('T')[0]

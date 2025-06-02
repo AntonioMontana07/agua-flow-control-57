@@ -1,18 +1,20 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { X } from 'lucide-react';
+import { Producto } from '@/lib/database';
 
 interface ProductFormProps {
+  producto?: Producto | null;
   onSubmit: (product: any) => void;
   onCancel: () => void;
 }
 
-const ProductForm: React.FC<ProductFormProps> = ({ onSubmit, onCancel }) => {
+const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     cantidad: '',
@@ -20,6 +22,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSubmit, onCancel }) => {
     minimo: '',
     descripcion: ''
   });
+
+  useEffect(() => {
+    if (producto) {
+      setFormData({
+        nombre: producto.nombre,
+        cantidad: producto.cantidad.toString(),
+        precio: producto.precio.toString(),
+        minimo: producto.minimo.toString(),
+        descripcion: producto.descripcion || ''
+      });
+    }
+  }, [producto]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -51,7 +65,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSubmit, onCancel }) => {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Agregar Nuevo Producto</CardTitle>
+        <CardTitle>{producto ? 'Editar Producto' : 'Agregar Nuevo Producto'}</CardTitle>
         <Button variant="ghost" size="sm" onClick={onCancel}>
           <X className="h-4 w-4" />
         </Button>
@@ -86,7 +100,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSubmit, onCancel }) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="precio">Precio Unitario ($) *</Label>
+              <Label htmlFor="precio">Precio Unitario (S/) *</Label>
               <Input
                 id="precio"
                 name="precio"
@@ -132,7 +146,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSubmit, onCancel }) => {
               Cancelar
             </Button>
             <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Agregar Producto
+              {producto ? 'Actualizar Producto' : 'Agregar Producto'}
             </Button>
           </div>
         </form>

@@ -1,22 +1,47 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, AlertTriangle, Package } from 'lucide-react';
+import { Plus, Search, AlertTriangle, Package, Edit, Trash2 } from 'lucide-react';
 import ProductForm from './ProductForm';
 import InventoryAlerts from './InventoryAlerts';
+import { ProductoService } from '@/services/ProductoService';
+import { Producto } from '@/lib/database';
+import { useToast } from '@/hooks/use-toast';
 
 const InventarioSection: React.FC = () => {
   const [showProductForm, setShowProductForm] = useState(false);
-  const [productos, setProductos] = useState([
-    { id: 1, nombre: 'Bidón 20L', cantidad: 45, precio: 25.00, minimo: 10, estado: 'Disponible' },
-    { id: 2, nombre: 'Bidón 10L', cantidad: 8, precio: 15.00, minimo: 10, estado: 'Bajo' },
-    { id: 3, nombre: 'Botella 1L', cantidad: 120, precio: 3.50, minimo: 50, estado: 'Disponible' },
-    { id: 4, nombre: 'Botella 500ml', cantidad: 5, precio: 2.00, minimo: 20, estado: 'Crítico' },
-    { id: 5, nombre: 'Bidón 5L', cantidad: 25, precio: 8.00, minimo: 15, estado: 'Disponible' },
-  ]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingProduct, setEditingProduct] = useState<Producto | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    cargarProductos();
+  }, []);
+
+  const cargarProductos = async () => {
+    try {
+      const productosData = await ProductoService.obtenerTodos();
+      const productosConEstado = productosData.map(producto => ({
+        ...producto,
+        estado: producto.cantidad < producto.minimo ? 'Crítico' : 
+               producto.cantidad < producto.minimo * 2 ? 'Bajo' : 'Disponible'
+      }));
+      setProductos(productosConEstado);
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los productos",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getEstadoColor = (estado: string) => {
     switch (estado) {
@@ -27,20 +52,72 @@ const InventarioSection: React.FC = () => {
     }
   };
 
-  const handleAddProduct = (newProduct: any) => {
-    const producto = {
-      id: productos.length + 1,
-      ...newProduct,
-      estado: newProduct.cantidad < newProduct.minimo ? 'Crítico' : 
-             newProduct.cantidad < newProduct.minimo * 2 ? 'Bajo' : 'Disponible'
-    };
-    setProductos([...productos, producto]);
-    setShowProductForm(false);
+  const handleAddProduct = async (newProduct: any) => {
+    try {
+      await ProductoService.crear(newProduct);
+      await cargarProductos();
+      setShowProductForm(false);
+      toast({
+        title: "Éxito",
+        description: "Producto agregado correctamente"
+      });
+    } catch (error) {
+      console.error('Error al agregar producto:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo agregar el producto",
+        variant: "destructive"
+      });
+    }
   };
+
+  const handleEditProduct = async (updatedProduct: any) => {
+    try {
+      if (editingProduct?.id) {
+        await ProductoService.actualizar({ ...updatedProduct, id: editingProduct.id });
+        await cargarProductos();
+        setEditingProduct(null);
+        toast({
+          title: "Éxito",
+          description: "Producto actualizado correctamente"
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar producto:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el producto",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
+      try {
+        await ProductoService.eliminar(id);
+        await cargarProductos();
+        toast({
+          title: "Éxito",
+          description: "Producto eliminado correctamente"
+        });
+      } catch (error) {
+        console.error('Error al eliminar producto:', error);
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el producto",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Cargando productos...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Alertas de inventario específicas para esta sección */}
       <InventoryAlerts productos={productos} />
 
       <div className="flex justify-between items-center">
@@ -57,10 +134,14 @@ const InventarioSection: React.FC = () => {
         </Button>
       </div>
 
-      {showProductForm && (
+      {(showProductForm || editingProduct) && (
         <ProductForm 
-          onSubmit={handleAddProduct}
-          onCancel={() => setShowProductForm(false)}
+          producto={editingProduct}
+          onSubmit={editingProduct ? handleEditProduct : handleAddProduct}
+          onCancel={() => {
+            setShowProductForm(false);
+            setEditingProduct(null);
+          }}
         />
       )}
 
@@ -110,17 +191,25 @@ const InventarioSection: React.FC = () => {
                     </td>
                     <td className="p-4">S/{producto.precio.toFixed(2)}</td>
                     <td className="p-4">
-                      <Badge className={getEstadoColor(producto.estado)}>
-                        {producto.estado}
+                      <Badge className={getEstadoColor(producto.estado || 'Disponible')}>
+                        {producto.estado || 'Disponible'}
                       </Badge>
                     </td>
                     <td className="p-4">
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          Editar
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setEditingProduct(producto)}
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
-                          Reabastecer
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => producto.id && handleDeleteProduct(producto.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </td>

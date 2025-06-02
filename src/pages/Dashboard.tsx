@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -10,11 +9,30 @@ import VentasSection from '@/components/dashboard/VentasSection';
 import ClientesSection from '@/components/dashboard/ClientesSection';
 import ReportesSection from '@/components/dashboard/ReportesSection';
 import InventoryAlerts from '@/components/dashboard/InventoryAlerts';
+import { useDatabase } from '@/hooks/useDatabase';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { isInitialized, error } = useDatabase();
   const [activeSection, setActiveSection] = useState('resumen');
   const [alertsDismissed, setAlertsDismissed] = useState(false);
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <img 
+            src="/lovable-uploads/82ad7edd-037f-444b-b6ea-1c8b060bc0d5.png" 
+            alt="BIOX Logo" 
+            className="h-16 w-auto mx-auto mb-4 animate-pulse"
+          />
+          <p className="text-muted-foreground">
+            {error ? `Error: ${error}` : 'Inicializando base de datos...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Productos de ejemplo para las alertas
   const productos = [

@@ -1,3 +1,4 @@
+
 // Configuración de IndexedDB para la aplicación
 export interface Producto {
   id?: number;
@@ -92,21 +93,44 @@ class DatabaseManager {
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
+      // Primero, intentar abrir la base de datos sin especificar versión para obtener la versión actual
+      const request = indexedDB.open(this.dbName);
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
+        const db = request.result;
+        this.version = db.version;
+        console.log('Versión actual de la base de datos:', this.version);
+        db.close();
+        
+        // Ahora abrir con la versión correcta
+        this.openWithCorrectVersion(resolve, reject);
       };
 
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        
-        // No crear stores automáticamente en upgrade
-        // Los stores se crearán dinámicamente cuando sea necesario
+      request.onupgradeneeded = () => {
+        // Si se ejecuta esto, significa que la base de datos no existe
+        // Cerrar y abrir con versión 1
+        this.version = 1;
+        request.result.close();
+        this.openWithCorrectVersion(resolve, reject);
       };
     });
+  }
+
+  private openWithCorrectVersion(resolve: () => void, reject: (error: any) => void): void {
+    const request = indexedDB.open(this.dbName, this.version);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      this.db = request.result;
+      console.log('Base de datos abierta correctamente con versión:', this.version);
+      resolve();
+    };
+
+    request.onupgradeneeded = (event) => {
+      console.log('Actualizando base de datos...');
+      // Este caso solo debería ejecutarse si realmente necesitamos crear stores nuevos
+    };
   }
 
   private async createStoreIfNotExists(storeName: string): Promise<void> {
@@ -127,6 +151,7 @@ class DatabaseManager {
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           this.db = request.result;
+          console.log('Store creado, nueva versión:', this.version);
           resolve();
         };
         
@@ -153,6 +178,8 @@ class DatabaseManager {
               store.createIndex('fecha', 'fecha', { unique: false });
               store.createIndex('clienteId', 'clienteId', { unique: false });
             }
+            
+            console.log('Store creado:', userStoreName);
           }
         };
       });

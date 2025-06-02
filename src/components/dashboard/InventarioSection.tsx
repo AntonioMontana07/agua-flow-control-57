@@ -1,19 +1,21 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, AlertTriangle } from 'lucide-react';
+import { Plus, Search, AlertTriangle, Package } from 'lucide-react';
+import ProductForm from './ProductForm';
 
 const InventarioSection: React.FC = () => {
-  const productos = [
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [productos, setProductos] = useState([
     { id: 1, nombre: 'Bidón 20L', cantidad: 45, precio: 25.00, minimo: 10, estado: 'Disponible' },
     { id: 2, nombre: 'Bidón 10L', cantidad: 8, precio: 15.00, minimo: 10, estado: 'Bajo' },
     { id: 3, nombre: 'Botella 1L', cantidad: 120, precio: 3.50, minimo: 50, estado: 'Disponible' },
     { id: 4, nombre: 'Botella 500ml', cantidad: 5, precio: 2.00, minimo: 20, estado: 'Crítico' },
     { id: 5, nombre: 'Bidón 5L', cantidad: 25, precio: 8.00, minimo: 15, estado: 'Disponible' },
-  ];
+  ]);
 
   const getEstadoColor = (estado: string) => {
     switch (estado) {
@@ -24,6 +26,17 @@ const InventarioSection: React.FC = () => {
     }
   };
 
+  const handleAddProduct = (newProduct: any) => {
+    const producto = {
+      id: productos.length + 1,
+      ...newProduct,
+      estado: newProduct.cantidad < newProduct.minimo ? 'Crítico' : 
+             newProduct.cantidad < newProduct.minimo * 2 ? 'Bajo' : 'Disponible'
+    };
+    setProductos([...productos, producto]);
+    setShowProductForm(false);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -31,11 +44,21 @@ const InventarioSection: React.FC = () => {
           <h2 className="text-3xl font-bold text-primary">Inventario</h2>
           <p className="text-muted-foreground">Gestiona tu stock de productos</p>
         </div>
-        <Button className="bg-primary hover:bg-primary/90">
+        <Button 
+          className="bg-primary hover:bg-primary/90"
+          onClick={() => setShowProductForm(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Agregar Producto
         </Button>
       </div>
+
+      {showProductForm && (
+        <ProductForm 
+          onSubmit={handleAddProduct}
+          onCancel={() => setShowProductForm(false)}
+        />
+      )}
 
       <Card>
         <CardHeader>
@@ -111,7 +134,7 @@ const InventarioSection: React.FC = () => {
             <CardTitle className="text-lg">Total Productos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">203</div>
+            <div className="text-3xl font-bold text-primary">{productos.reduce((sum, p) => sum + p.cantidad, 0)}</div>
             <p className="text-sm text-muted-foreground">unidades en stock</p>
           </CardContent>
         </Card>
@@ -121,7 +144,9 @@ const InventarioSection: React.FC = () => {
             <CardTitle className="text-lg">Valor del Inventario</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">$3,247.50</div>
+            <div className="text-3xl font-bold text-green-600">
+              ${productos.reduce((sum, p) => sum + (p.cantidad * p.precio), 0).toFixed(2)}
+            </div>
             <p className="text-sm text-muted-foreground">valor total estimado</p>
           </CardContent>
         </Card>
@@ -131,7 +156,9 @@ const InventarioSection: React.FC = () => {
             <CardTitle className="text-lg">Productos Críticos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-600">3</div>
+            <div className="text-3xl font-bold text-red-600">
+              {productos.filter(p => p.estado === 'Crítico').length}
+            </div>
             <p className="text-sm text-muted-foreground">requieren reabastecimiento</p>
           </CardContent>
         </Card>

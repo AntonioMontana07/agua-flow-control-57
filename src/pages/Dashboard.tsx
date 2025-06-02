@@ -5,6 +5,8 @@ import Sidebar from '@/components/layout/Sidebar';
 import ResumenSection from '@/components/dashboard/ResumenSection';
 import InventarioSection from '@/components/dashboard/InventarioSection';
 import ComprasSection from '@/components/dashboard/ComprasSection';
+import VentasSection from '@/components/dashboard/VentasSection';
+import ClientesSection from '@/components/dashboard/ClientesSection';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -19,19 +21,9 @@ const Dashboard: React.FC = () => {
       case 'compras':
         return <ComprasSection />;
       case 'ventas':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-primary">Ventas</h2>
-            <p className="text-muted-foreground">Registro de ventas realizadas - Próximamente</p>
-          </div>
-        );
+        return <VentasSection />;
       case 'clientes':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-primary">Clientes</h2>
-            <p className="text-muted-foreground">Base de datos de clientes - Próximamente</p>
-          </div>
-        );
+        return <ClientesSection />;
       case 'reportes':
         return (
           <div className="space-y-6">

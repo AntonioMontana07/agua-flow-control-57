@@ -1,4 +1,3 @@
-
 // Configuración de IndexedDB para la aplicación
 export interface Producto {
   id?: number;
@@ -53,6 +52,21 @@ export interface Gasto {
   cantidad: number;
   descripcion: string;
   fecha: string;
+  fechaCreacion: string;
+}
+
+export interface Pedido {
+  id?: number;
+  clienteId: number;
+  clienteNombre: string;
+  clienteDireccion: string;
+  productoId: number;
+  productoNombre: string;
+  cantidad: number;
+  precio: number;
+  total: number;
+  fecha: string;
+  hora: string;
   fechaCreacion: string;
 }
 
@@ -133,6 +147,9 @@ class DatabaseManager {
               store.createIndex('clienteId', 'clienteId', { unique: false });
             } else if (storeName === 'gastos') {
               store.createIndex('fecha', 'fecha', { unique: false });
+            } else if (storeName === 'pedidos') {
+              store.createIndex('fecha', 'fecha', { unique: false });
+              store.createIndex('clienteId', 'clienteId', { unique: false });
             }
           }
         };

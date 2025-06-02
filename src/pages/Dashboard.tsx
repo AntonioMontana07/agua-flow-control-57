@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Sidebar from '@/components/layout/Sidebar';
 import ResumenSection from '@/components/dashboard/ResumenSection';
 import InventarioSection from '@/components/dashboard/InventarioSection';
+import PedidosSection from '@/components/dashboard/PedidosSection';
 import ComprasSection from '@/components/dashboard/ComprasSection';
 import GastosSection from '@/components/dashboard/GastosSection';
 import VentasSection from '@/components/dashboard/VentasSection';
@@ -51,6 +52,8 @@ const Dashboard: React.FC = () => {
         return <ResumenSection />;
       case 'inventario':
         return <InventarioSection />;
+      case 'pedidos':
+        return <PedidosSection />;
       case 'compras':
         return <ComprasSection />;
       case 'gastos':

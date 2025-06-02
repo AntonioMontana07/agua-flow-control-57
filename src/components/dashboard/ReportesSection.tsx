@@ -1,46 +1,52 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar, DollarSign, Users, TrendingUp, TrendingDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-interface Venta {
-  id: number;
-  clienteId: number;
-  clienteNombre: string;
-  fecha: string;
-  hora: string;
-  precio: number;
-  descripcion: string;
-}
-
-interface Compra {
-  id: number;
-  cantidad: number;
-  fecha: string;
-  precio: number;
-  total: number;
-}
+import { VentaService } from '@/services/VentaService';
+import { CompraService } from '@/services/CompraService';
+import { GastoService } from '@/services/GastoService';
+import { Venta, Compra, Gasto } from '@/lib/database';
 
 const ReportesSection: React.FC = () => {
-  const [fechaInicio, setFechaInicio] = useState('2024-01-01');
-  const [fechaFin, setFechaFin] = useState('2024-12-31');
+  const [fechaInicio, setFechaInicio] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    return date.toISOString().split('T')[0];
+  });
+  const [fechaFin, setFechaFin] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
 
-  // Datos de ejemplo (en una app real vendrían de un estado global o API)
-  const ventas: Venta[] = [
-    { id: 1, clienteId: 1, clienteNombre: 'María González', fecha: '2024-01-15', hora: '10:30', precio: 45.00, descripcion: 'Entrega de 3 garrafones' },
-    { id: 2, clienteId: 2, clienteNombre: 'Juan Pérez', fecha: '2024-01-16', hora: '14:20', precio: 30.00, descripcion: 'Entrega de 2 garrafones' },
-    { id: 3, clienteId: 1, clienteNombre: 'María González', fecha: '2024-01-18', hora: '09:15', precio: 60.00, descripcion: 'Entrega de 4 garrafones' },
-    { id: 4, clienteId: 3, clienteNombre: 'Carlos López', fecha: '2024-01-20', hora: '16:45', precio: 15.00, descripcion: 'Entrega de 1 garrafón' },
-  ];
+  const [ventas, setVentas] = useState<Venta[]>([]);
+  const [compras, setCompras] = useState<Compra[]>([]);
+  const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const compras: Compra[] = [
-    { id: 1, cantidad: 50, fecha: '2024-01-15', precio: 15.00, total: 750.00 },
-    { id: 2, cantidad: 30, fecha: '2024-01-10', precio: 15.00, total: 450.00 },
-  ];
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    try {
+      setLoading(true);
+      const [ventasData, comprasData, gastosData] = await Promise.all([
+        VentaService.obtenerTodas(),
+        CompraService.obtenerTodas(),
+        GastoService.obtenerTodos()
+      ]);
+      setVentas(ventasData);
+      setCompras(comprasData);
+      setGastos(gastosData);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const ventasFiltradas = useMemo(() => {
     return ventas.filter(venta => {
@@ -60,9 +66,20 @@ const ReportesSection: React.FC = () => {
     });
   }, [compras, fechaInicio, fechaFin]);
 
-  const totalGanancias = ventasFiltradas.reduce((sum, venta) => sum + venta.precio, 0);
-  const totalGastos = comprasFiltradas.reduce((sum, compra) => sum + compra.total, 0);
-  const gananciaNeta = totalGanancias - totalGastos;
+  const gastosFiltrados = useMemo(() => {
+    return gastos.filter(gasto => {
+      const fechaGasto = new Date(gasto.fecha);
+      const inicio = new Date(fechaInicio);
+      const fin = new Date(fechaFin);
+      return fechaGasto >= inicio && fechaGasto <= fin;
+    });
+  }, [gastos, fechaInicio, fechaFin]);
+
+  const totalIngresos = ventasFiltradas.reduce((sum, venta) => sum + venta.precio, 0);
+  const totalCompras = comprasFiltradas.reduce((sum, compra) => sum + compra.total, 0);
+  const totalGastos = gastosFiltrados.reduce((sum, gasto) => sum + gasto.cantidad, 0);
+  const totalEgresos = totalCompras + totalGastos;
+  const gananciaNeta = totalIngresos - totalEgresos;
 
   // Cliente con más compras
   const clienteStats = useMemo(() => {
@@ -93,6 +110,20 @@ const ReportesSection: React.FC = () => {
 
     return { clienteMasCompras, clienteMayorGanancia };
   }, [ventasFiltradas]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Reportes</h2>
+            <p className="text-muted-foreground">Análisis de ventas y ganancias</p>
+          </div>
+        </div>
+        <div className="text-center">Cargando datos...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -139,23 +170,23 @@ const ReportesSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Ganancias</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Ingresos</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">S/{totalGanancias.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Ingresos por ventas</p>
+            <div className="text-2xl font-bold text-green-600">S/{totalIngresos.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Ingresos por ventas ({ventasFiltradas.length} ventas)</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Gastos</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Egresos</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">S/{totalGastos.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Gastos en recargas</p>
+            <div className="text-2xl font-bold text-red-600">S/{totalEgresos.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Compras: S/{totalCompras.toFixed(2)} | Gastos: S/{totalGastos.toFixed(2)}</p>
           </CardContent>
         </Card>
 
@@ -168,18 +199,20 @@ const ReportesSection: React.FC = () => {
             <div className={`text-2xl font-bold ${gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               S/{gananciaNeta.toFixed(2)}
             </div>
-            <p className="text-xs text-muted-foreground">Ganancias - Gastos</p>
+            <p className="text-xs text-muted-foreground">Ingresos - Egresos</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Ventas</CardTitle>
+            <CardTitle className="text-sm font-medium">Transacciones</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{ventasFiltradas.length}</div>
-            <p className="text-xs text-muted-foreground">Ventas realizadas</p>
+            <div className="text-2xl font-bold text-primary">
+              {ventasFiltradas.length + comprasFiltradas.length + gastosFiltrados.length}
+            </div>
+            <p className="text-xs text-muted-foreground">Total de movimientos</p>
           </CardContent>
         </Card>
       </div>
@@ -227,34 +260,41 @@ const ReportesSection: React.FC = () => {
           <CardTitle>Ventas del Período Seleccionado</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Hora</TableHead>
-                <TableHead>Precio</TableHead>
-                <TableHead>Descripción</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ventasFiltradas.map((venta) => (
-                <TableRow key={venta.id}>
-                  <TableCell>
-                    {new Date(venta.fecha).toLocaleDateString('es-ES')}
-                  </TableCell>
-                  <TableCell className="font-medium">{venta.clienteNombre}</TableCell>
-                  <TableCell>{venta.hora}</TableCell>
-                  <TableCell className="font-bold text-green-600">
-                    S/{venta.precio.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {venta.descripcion}
-                  </TableCell>
+          {ventasFiltradas.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No hay ventas en el período seleccionado
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Producto</TableHead>
+                  <TableHead>Cantidad</TableHead>
+                  <TableHead>Precio</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {ventasFiltradas.map((venta) => (
+                  <TableRow key={venta.id}>
+                    <TableCell>
+                      <div>
+                        <div>{new Date(venta.fecha).toLocaleDateString('es-ES')}</div>
+                        <div className="text-xs text-muted-foreground">{venta.hora}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{venta.clienteNombre}</TableCell>
+                    <TableCell>{venta.productoNombre}</TableCell>
+                    <TableCell>{venta.cantidad}</TableCell>
+                    <TableCell className="font-bold text-green-600">
+                      S/{venta.precio.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

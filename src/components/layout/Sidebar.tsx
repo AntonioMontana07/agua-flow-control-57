@@ -23,7 +23,8 @@ import {
   LogOut, 
   Sun, 
   Moon,
-  Receipt
+  Receipt,
+  ClipboardList
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,6 +39,7 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
   const menuItems = [
     { id: 'resumen', label: 'Resumen', icon: Home },
     { id: 'inventario', label: 'Inventario', icon: Package },
+    { id: 'pedidos', label: 'Pedidos', icon: ClipboardList },
     { id: 'compras', label: 'Compras', icon: ShoppingCart },
     { id: 'gastos', label: 'Gastos', icon: Receipt },
     { id: 'ventas', label: 'Ventas', icon: TrendingUp },

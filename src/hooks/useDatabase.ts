@@ -6,6 +6,7 @@ import { ClienteService } from '@/services/ClienteService';
 import { CompraService } from '@/services/CompraService';
 import { VentaService } from '@/services/VentaService';
 import { GastoService } from '@/services/GastoService';
+import { PedidoService } from '@/services/PedidoService';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useDatabase = () => {
@@ -37,6 +38,7 @@ export const useDatabase = () => {
           await CompraService.inicializarDatosPrueba();
           await VentaService.inicializarDatosPrueba();
           await GastoService.inicializarDatosPrueba();
+          await PedidoService.inicializarDatosPrueba();
           
           // Marcar como inicializado para este usuario
           localStorage.setItem(`db_initialized_${user.id}`, 'true');

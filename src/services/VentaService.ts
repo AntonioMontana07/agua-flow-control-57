@@ -41,7 +41,8 @@ export class VentaService {
           hora: '09:30',
           fecha: '2024-06-02',
           precio: 30.00,
-          descripcion: 'Entrega de 2 garrafones'
+          descripcion: 'Entrega de 2 garrafones',
+          fechaCreacion: new Date().toISOString()
         },
         {
           clienteId: 2,
@@ -49,7 +50,8 @@ export class VentaService {
           hora: '14:15',
           fecha: '2024-06-02',
           precio: 15.00,
-          descripcion: 'Entrega de 1 garrafón'
+          descripcion: 'Entrega de 1 garrafón',
+          fechaCreacion: new Date().toISOString()
         }
       ];
 

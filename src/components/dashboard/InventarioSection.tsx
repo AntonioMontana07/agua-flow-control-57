@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +10,14 @@ import { ProductoService } from '@/services/ProductoService';
 import { Producto } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
 
+// Interface para productos con estado calculado
+interface ProductoConEstado extends Producto {
+  estado: string;
+}
+
 const InventarioSection: React.FC = () => {
   const [showProductForm, setShowProductForm] = useState(false);
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [productos, setProductos] = useState<ProductoConEstado[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Producto | null>(null);
   const { toast } = useToast();
@@ -25,7 +29,7 @@ const InventarioSection: React.FC = () => {
   const cargarProductos = async () => {
     try {
       const productosData = await ProductoService.obtenerTodos();
-      const productosConEstado = productosData.map(producto => ({
+      const productosConEstado: ProductoConEstado[] = productosData.map(producto => ({
         ...producto,
         estado: producto.cantidad < producto.minimo ? 'Crítico' : 
                producto.cantidad < producto.minimo * 2 ? 'Bajo' : 'Disponible'
@@ -191,8 +195,8 @@ const InventarioSection: React.FC = () => {
                     </td>
                     <td className="p-4">S/{producto.precio.toFixed(2)}</td>
                     <td className="p-4">
-                      <Badge className={getEstadoColor(producto.estado || 'Disponible')}>
-                        {producto.estado || 'Disponible'}
+                      <Badge className={getEstadoColor(producto.estado)}>
+                        {producto.estado}
                       </Badge>
                     </td>
                     <td className="p-4">

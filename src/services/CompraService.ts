@@ -36,13 +36,15 @@ export class CompraService {
           cantidad: 50,
           fecha: '2024-01-15',
           descripcion: 'Recarga semanal de garrafones',
-          precio: 15.00
+          precio: 15.00,
+          fechaCreacion: new Date().toISOString()
         },
         {
           cantidad: 30,
           fecha: '2024-01-10',
           descripcion: 'Recarga de emergencia',
-          precio: 15.00
+          precio: 15.00,
+          fechaCreacion: new Date().toISOString()
         }
       ];
 

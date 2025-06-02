@@ -34,19 +34,22 @@ export class ClienteService {
           nombre: 'Juan Pérez',
           direccion: 'Calle Principal #123, Colonia Centro',
           telefono: '555-0123',
-          descripcion: 'Cliente frecuente'
+          descripcion: 'Cliente frecuente',
+          fechaRegistro: new Date().toISOString().split('T')[0]
         },
         {
           nombre: 'María González',
           direccion: 'Av. Reforma #456, Colonia Norte',
           telefono: '555-0456',
-          descripcion: ''
+          descripcion: '',
+          fechaRegistro: new Date().toISOString().split('T')[0]
         },
         {
           nombre: 'Carlos López',
           direccion: 'Calle Secundaria #789',
           telefono: '555-0789',
-          descripcion: ''
+          descripcion: '',
+          fechaRegistro: new Date().toISOString().split('T')[0]
         }
       ];
 

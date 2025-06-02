@@ -8,6 +8,7 @@ export interface Producto {
   minimo: number;
   descripcion?: string;
   fechaCreacion: string;
+  estado?: string; // Campo calculado dinámicamente
 }
 
 export interface Cliente {

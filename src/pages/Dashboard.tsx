@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Sidebar from '@/components/layout/Sidebar';
@@ -13,12 +13,35 @@ import ClientesSection from '@/components/dashboard/ClientesSection';
 import ReportesSection from '@/components/dashboard/ReportesSection';
 import InventoryAlerts from '@/components/dashboard/InventoryAlerts';
 import { useDatabase } from '@/hooks/useDatabase';
+import { ProductoService } from '@/services/ProductoService';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { isInitialized, error } = useDatabase();
   const [activeSection, setActiveSection] = useState('resumen');
   const [alertsDismissed, setAlertsDismissed] = useState(false);
+  const [productos, setProductos] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      cargarProductos();
+    }
+  }, [isInitialized]);
+
+  const cargarProductos = async () => {
+    try {
+      const productosData = await ProductoService.obtenerTodos();
+      const productosConEstado = productosData.map(producto => ({
+        ...producto,
+        estado: producto.cantidad < producto.minimo ? 'Crítico' : 
+               producto.cantidad < producto.minimo * 2 ? 'Bajo' : 'Disponible'
+      }));
+      setProductos(productosConEstado);
+    } catch (error) {
+      console.error('Error al cargar productos para alertas:', error);
+      setProductos([]);
+    }
+  };
 
   if (!isInitialized) {
     return (
@@ -36,15 +59,6 @@ const Dashboard: React.FC = () => {
       </div>
     );
   }
-
-  // Productos de ejemplo para las alertas
-  const productos = [
-    { id: 1, nombre: 'Bidón 20L', cantidad: 45, precio: 25.00, minimo: 10, estado: 'Disponible' },
-    { id: 2, nombre: 'Bidón 10L', cantidad: 8, precio: 15.00, minimo: 10, estado: 'Bajo' },
-    { id: 3, nombre: 'Botella 1L', cantidad: 120, precio: 3.50, minimo: 50, estado: 'Disponible' },
-    { id: 4, nombre: 'Botella 500ml', cantidad: 5, precio: 2.00, minimo: 20, estado: 'Crítico' },
-    { id: 5, nombre: 'Bidón 5L', cantidad: 25, precio: 8.00, minimo: 15, estado: 'Disponible' },
-  ];
 
   const renderContent = () => {
     switch (activeSection) {
@@ -69,6 +83,10 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Solo mostrar alertas si hay productos y hay algunos críticos o bajos
+  const productosProblematicos = productos.filter(p => p.estado === 'Crítico' || p.estado === 'Bajo');
+  const mostrarAlertas = productos.length > 0 && productosProblematicos.length > 0 && !alertsDismissed;
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -85,8 +103,8 @@ const Dashboard: React.FC = () => {
               <h1 className="text-lg font-semibold">Dashboard</h1>
             </div>
             
-            {/* Mostrar alertas de inventario solo si no han sido descartadas */}
-            {!alertsDismissed && (
+            {/* Mostrar alertas de inventario solo si hay productos con problemas */}
+            {mostrarAlertas && (
               <InventoryAlerts 
                 productos={productos}
                 onDismiss={() => setAlertsDismissed(true)}

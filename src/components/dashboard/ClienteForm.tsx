@@ -1,24 +1,37 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { X } from 'lucide-react';
+import { Cliente } from '@/lib/database';
 
 interface ClienteFormProps {
+  cliente?: Cliente | null;
   onSubmit: (cliente: any) => void;
   onCancel: () => void;
 }
 
-const ClienteForm: React.FC<ClienteFormProps> = ({ onSubmit, onCancel }) => {
+const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     direccion: '',
     telefono: '',
     descripcion: ''
   });
+
+  useEffect(() => {
+    if (cliente) {
+      setFormData({
+        nombre: cliente.nombre,
+        direccion: cliente.direccion,
+        telefono: cliente.telefono,
+        descripcion: cliente.descripcion || ''
+      });
+    }
+  }, [cliente]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -42,7 +55,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ onSubmit, onCancel }) => {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Agregar Nuevo Cliente</CardTitle>
+        <CardTitle>{cliente ? 'Editar Cliente' : 'Agregar Nuevo Cliente'}</CardTitle>
         <Button variant="ghost" size="sm" onClick={onCancel}>
           <X className="h-4 w-4" />
         </Button>
@@ -105,7 +118,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ onSubmit, onCancel }) => {
               Cancelar
             </Button>
             <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Registrar Cliente
+              {cliente ? 'Actualizar Cliente' : 'Registrar Cliente'}
             </Button>
           </div>
         </form>

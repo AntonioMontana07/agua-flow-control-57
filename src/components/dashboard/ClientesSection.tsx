@@ -2,15 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, MapPin, Phone } from 'lucide-react';
+import { Plus, Users, MapPin, Phone, Edit, Trash2 } from 'lucide-react';
 import ClienteForm from './ClienteForm';
 import { ClienteService } from '@/services/ClienteService';
 import { Cliente } from '@/lib/database';
+import { useToast } from '@/hooks/use-toast';
 
 const ClientesSection: React.FC = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     cargarClientes();
@@ -24,6 +27,11 @@ const ClientesSection: React.FC = () => {
       console.log('Clientes cargados:', clientesData.length);
     } catch (error) {
       console.error('Error al cargar clientes:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los clientes",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -32,11 +40,64 @@ const ClientesSection: React.FC = () => {
   const handleAddCliente = async (clienteData: Omit<Cliente, 'id' | 'fechaRegistro'>) => {
     try {
       await ClienteService.crear(clienteData);
-      await cargarClientes(); // Recargar la lista
+      await cargarClientes();
       setShowForm(false);
-      console.log('Cliente agregado exitosamente');
+      toast({
+        title: "Éxito",
+        description: "Cliente agregado correctamente"
+      });
     } catch (error) {
       console.error('Error al agregar cliente:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo agregar el cliente",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditCliente = async (clienteData: Omit<Cliente, 'id' | 'fechaRegistro'>) => {
+    try {
+      if (editingCliente?.id) {
+        await ClienteService.actualizar({ 
+          ...clienteData, 
+          id: editingCliente.id,
+          fechaRegistro: editingCliente.fechaRegistro 
+        });
+        await cargarClientes();
+        setEditingCliente(null);
+        toast({
+          title: "Éxito",
+          description: "Cliente actualizado correctamente"
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar cliente:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el cliente",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteCliente = async (id: number) => {
+    if (confirm('¿Estás seguro de que deseas eliminar este cliente?')) {
+      try {
+        await ClienteService.eliminar(id);
+        await cargarClientes();
+        toast({
+          title: "Éxito",
+          description: "Cliente eliminado correctamente"
+        });
+      } catch (error) {
+        console.error('Error al eliminar cliente:', error);
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el cliente",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -51,12 +112,16 @@ const ClientesSection: React.FC = () => {
     );
   }
 
-  if (showForm) {
+  if (showForm || editingCliente) {
     return (
       <div className="space-y-6">
         <ClienteForm 
-          onSubmit={handleAddCliente}
-          onCancel={() => setShowForm(false)}
+          cliente={editingCliente}
+          onSubmit={editingCliente ? handleEditCliente : handleAddCliente}
+          onCancel={() => {
+            setShowForm(false);
+            setEditingCliente(null);
+          }}
         />
       </div>
     );
@@ -148,8 +213,26 @@ const ClientesSection: React.FC = () => {
                         </p>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Registrado: {new Date(cliente.fechaRegistro).toLocaleDateString()}
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="text-sm text-muted-foreground">
+                        Registrado: {new Date(cliente.fechaRegistro).toLocaleDateString()}
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setEditingCliente(cliente)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeleteCliente(cliente.id!)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

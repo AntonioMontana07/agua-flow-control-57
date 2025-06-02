@@ -114,7 +114,7 @@ const InventarioSection: React.FC = () => {
         toast({
           title: "Error",
           description: "No se pudo eliminar el producto",
-          variant: "destructiva"
+          variant: "destructive"
         });
       }
     }

@@ -1,61 +1,72 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, DollarSign, TrendingUp, Clock, User } from 'lucide-react';
+import { Plus, DollarSign, TrendingUp, Clock, User, Package } from 'lucide-react';
 import VentaForm from './VentaForm';
-
-interface Venta {
-  id: string;
-  clienteId: string;
-  clienteNombre: string;
-  hora: string;
-  fecha: string;
-  precio: number;
-  descripcion?: string;
-}
+import { VentaService } from '@/services/VentaService';
+import { ClienteService } from '@/services/ClienteService';
+import { Venta } from '@/lib/database';
+import { useToast } from '@/hooks/use-toast';
 
 const VentasSection: React.FC = () => {
-  const [ventas, setVentas] = useState<Venta[]>([
-    {
-      id: '1',
-      clienteId: '1',
-      clienteNombre: 'Juan Pérez',
-      hora: '09:30',
-      fecha: '2024-06-02',
-      precio: 30.00,
-      descripcion: 'Entrega de 2 garrafones'
-    },
-    {
-      id: '2',
-      clienteId: '2',
-      clienteNombre: 'María González',
-      hora: '14:15',
-      fecha: '2024-06-02',
-      precio: 15.00,
-      descripcion: 'Entrega de 1 garrafón'
-    }
-  ]);
+  const [ventas, setVentas] = useState<Venta[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Clientes disponibles (normalmente vendrían de un contexto o API)
+  // Clientes disponibles
   const clientes = [
     { id: '1', nombre: 'Juan Pérez' },
     { id: '2', nombre: 'María González' },
     { id: '3', nombre: 'Carlos López' }
   ];
 
-  const handleAddVenta = (ventaData: Omit<Venta, 'id' | 'fecha' | 'clienteNombre'>) => {
-    const cliente = clientes.find(c => c.id === ventaData.clienteId);
-    const newVenta: Venta = {
-      ...ventaData,
-      id: Date.now().toString(),
-      fecha: new Date().toISOString().split('T')[0],
-      clienteNombre: cliente?.nombre || 'Cliente Desconocido'
-    };
-    
-    setVentas(prev => [newVenta, ...prev]);
-    setShowForm(false);
+  useEffect(() => {
+    cargarVentas();
+  }, []);
+
+  const cargarVentas = async () => {
+    try {
+      const ventasData = await VentaService.obtenerTodas();
+      setVentas(ventasData.filter(v => v.id !== undefined) as Venta[]);
+    } catch (error) {
+      console.error('Error al cargar ventas:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las ventas",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddVenta = async (ventaData: any) => {
+    try {
+      const cliente = clientes.find(c => c.id === ventaData.clienteId);
+      const nuevaVenta = {
+        ...ventaData,
+        clienteNombre: cliente?.nombre || 'Cliente Desconocido',
+        fecha: new Date().toISOString().split('T')[0]
+      };
+      
+      await VentaService.crear(nuevaVenta);
+      await cargarVentas();
+      setShowForm(false);
+      
+      toast({
+        title: "Éxito",
+        description: "Venta registrada correctamente e inventario actualizado"
+      });
+    } catch (error: any) {
+      console.error('Error al registrar venta:', error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo registrar la venta",
+        variant: "destructive"
+      });
+    }
   };
 
   const totalVentasHoy = ventas
@@ -63,6 +74,10 @@ const VentasSection: React.FC = () => {
     .reduce((sum, v) => sum + v.precio, 0);
 
   const ventasHoy = ventas.filter(v => v.fecha === new Date().toISOString().split('T')[0]).length;
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Cargando ventas...</div>;
+  }
 
   if (showForm) {
     return (
@@ -146,6 +161,11 @@ const VentasSection: React.FC = () => {
                       <User className="h-4 w-4 text-primary" />
                       <h3 className="font-semibold">{venta.clienteNombre}</h3>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">{venta.productoNombre}</span>
+                      <span className="text-sm text-muted-foreground">x{venta.cantidad}</span>
+                    </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
@@ -164,6 +184,9 @@ const VentasSection: React.FC = () => {
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">
                       S/{venta.precio.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      S/{venta.precioUnitario.toFixed(2)} c/u
                     </div>
                   </div>
                 </div>

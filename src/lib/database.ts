@@ -34,6 +34,10 @@ export interface Venta {
   id?: number;
   clienteId: number;
   clienteNombre: string;
+  productoId: number;
+  productoNombre: string;
+  cantidad: number;
+  precioUnitario: number;
   hora: string;
   fecha: string;
   precio: number;

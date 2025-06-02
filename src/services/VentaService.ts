@@ -1,5 +1,6 @@
 
 import { dbManager, Venta } from '@/lib/database';
+import { ProductoService } from './ProductoService';
 
 export class VentaService {
   static async crear(venta: Omit<Venta, 'id'>): Promise<number> {
@@ -7,7 +8,30 @@ export class VentaService {
       ...venta,
       fechaCreacion: new Date().toISOString()
     };
-    return await dbManager.add('ventas', nuevaVenta);
+
+    // Verificar que hay suficiente stock
+    const producto = await ProductoService.obtenerPorId(venta.productoId);
+    if (!producto) {
+      throw new Error('Producto no encontrado');
+    }
+
+    if (producto.cantidad < venta.cantidad) {
+      throw new Error(`Stock insuficiente. Solo hay ${producto.cantidad} unidades disponibles`);
+    }
+
+    // Registrar la venta
+    const ventaId = await dbManager.add('ventas', nuevaVenta);
+
+    // Descontar del inventario
+    const nuevoStock = producto.cantidad - venta.cantidad;
+    await ProductoService.actualizar({
+      ...producto,
+      cantidad: nuevoStock
+    });
+
+    console.log(`Venta registrada. Producto ${producto.nombre}: ${producto.cantidad} -> ${nuevoStock}`);
+
+    return ventaId;
   }
 
   static async obtenerTodas(): Promise<Venta[]> {
@@ -38,18 +62,26 @@ export class VentaService {
         {
           clienteId: 1,
           clienteNombre: 'Juan Pérez',
+          productoId: 1,
+          productoNombre: 'Bidón 20L',
+          cantidad: 2,
+          precioUnitario: 25.00,
           hora: '09:30',
           fecha: '2024-06-02',
-          precio: 30.00,
+          precio: 50.00,
           descripcion: 'Entrega de 2 garrafones',
           fechaCreacion: new Date().toISOString()
         },
         {
           clienteId: 2,
           clienteNombre: 'María González',
+          productoId: 1,
+          productoNombre: 'Bidón 20L',
+          cantidad: 1,
+          precioUnitario: 25.00,
           hora: '14:15',
           fecha: '2024-06-02',
-          precio: 15.00,
+          precio: 25.00,
           descripcion: 'Entrega de 1 garrafón',
           fechaCreacion: new Date().toISOString()
         }

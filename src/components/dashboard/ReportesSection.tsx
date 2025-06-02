@@ -25,6 +25,7 @@ const ReportesSection: React.FC = () => {
   const cargarDatos = async () => {
     try {
       setLoading(true);
+      // Solo cargar datos de compras, ventas y gastos (NO pedidos)
       const [comprasData, ventasData, gastosData] = await Promise.all([
         CompraService.obtenerTodas(),
         VentaService.obtenerTodas(),
@@ -34,6 +35,7 @@ const ReportesSection: React.FC = () => {
       setCompras(comprasData);
       setVentas(ventasData);
       setGastos(gastosData);
+      console.log('Reportes cargados sin incluir pedidos (módulo independiente)');
     } catch (error) {
       console.error('Error al cargar datos:', error);
     } finally {
@@ -59,6 +61,7 @@ const ReportesSection: React.FC = () => {
   const ventasFiltradas = filtrarPorFecha(ventas);
   const gastosFiltrados = filtrarPorFecha(gastos);
 
+  // Cálculos financieros solo con compras, ventas y gastos (NO pedidos)
   const totalCompras = comprasFiltradas.reduce((sum, compra) => sum + compra.total, 0);
   const totalVentas = ventasFiltradas.reduce((sum, venta) => sum + (venta.cantidad * venta.precioUnitario), 0);
   const totalGastos = gastosFiltrados.reduce((sum, gasto) => sum + gasto.cantidad, 0);
@@ -83,7 +86,7 @@ const ReportesSection: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-primary">Reportes</h2>
-          <p className="text-muted-foreground">Análisis de compras, ventas y gastos</p>
+          <p className="text-muted-foreground">Análisis de compras, ventas y gastos (Pedidos son independientes)</p>
         </div>
       </div>
 

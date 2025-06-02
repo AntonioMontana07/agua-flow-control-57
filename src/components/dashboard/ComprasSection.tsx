@@ -78,7 +78,7 @@ const ComprasSection: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalCompras.toFixed(2)}</div>
+            <div className="text-2xl font-bold">S/{totalCompras.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">En recargas este mes</p>
           </CardContent>
         </Card>
@@ -131,9 +131,9 @@ const ComprasSection: React.FC = () => {
                   <TableCell className="font-medium">
                     {compra.cantidad} unidades
                   </TableCell>
-                  <TableCell>${compra.precio.toFixed(2)}</TableCell>
+                  <TableCell>S/{compra.precio.toFixed(2)}</TableCell>
                   <TableCell className="font-bold text-primary">
-                    ${compra.total.toFixed(2)}
+                    S/{compra.total.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {compra.descripcion || 'Sin descripción'}

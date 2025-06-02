@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -107,7 +108,7 @@ const InventarioSection: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="p-4">${producto.precio.toFixed(2)}</td>
+                    <td className="p-4">S/{producto.precio.toFixed(2)}</td>
                     <td className="p-4">
                       <Badge className={getEstadoColor(producto.estado)}>
                         {producto.estado}
@@ -148,7 +149,7 @@ const InventarioSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              ${productos.reduce((sum, p) => sum + (p.cantidad * p.precio), 0).toFixed(2)}
+              S/{productos.reduce((sum, p) => sum + (p.cantidad * p.precio), 0).toFixed(2)}
             </div>
             <p className="text-sm text-muted-foreground">valor total estimado</p>
           </CardContent>

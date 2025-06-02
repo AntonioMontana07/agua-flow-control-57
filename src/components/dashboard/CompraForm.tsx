@@ -5,7 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface CompraFormProps {
   onSubmit: (compra: any) => void;
@@ -15,10 +20,10 @@ interface CompraFormProps {
 const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     cantidad: '',
-    fecha: new Date().toISOString().split('T')[0],
     descripcion: '',
     precio: ''
   });
+  const [fecha, setFecha] = useState<Date>(new Date());
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -31,14 +36,14 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.cantidad || !formData.fecha || !formData.precio) {
+    if (!formData.cantidad || !fecha || !formData.precio) {
       alert('Por favor, complete todos los campos obligatorios');
       return;
     }
 
     const compra = {
       cantidad: parseInt(formData.cantidad),
-      fecha: formData.fecha,
+      fecha: fecha.toISOString().split('T')[0],
       descripcion: formData.descripcion,
       precio: parseFloat(formData.precio)
     };
@@ -72,19 +77,34 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel }) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fecha">Fecha de Compra *</Label>
-              <Input
-                id="fecha"
-                name="fecha"
-                type="date"
-                value={formData.fecha}
-                onChange={handleChange}
-                required
-              />
+              <Label>Fecha de Compra *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !fecha && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fecha ? format(fecha, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={fecha}
+                    onSelect={(date) => date && setFecha(date)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="precio">Precio por Unidad ($) *</Label>
+              <Label htmlFor="precio">Precio por Unidad (S/) *</Label>
               <Input
                 id="precio"
                 name="precio"

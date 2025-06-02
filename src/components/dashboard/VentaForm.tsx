@@ -27,7 +27,8 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
     productoId: '',
     cantidad: '1',
     hora: new Date().toTimeString().slice(0, 5),
-    descripcion: ''
+    descripcion: '',
+    precioTotal: ''
   });
   
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -37,6 +38,17 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
   useEffect(() => {
     cargarProductos();
   }, []);
+
+  useEffect(() => {
+    // Calcular precio automáticamente cuando cambia el producto o cantidad
+    if (productoSeleccionado) {
+      const precioCalculado = productoSeleccionado.precio * parseInt(formData.cantidad);
+      setFormData(prev => ({
+        ...prev,
+        precioTotal: precioCalculado.toFixed(2)
+      }));
+    }
+  }, [productoSeleccionado, formData.cantidad]);
 
   const cargarProductos = async () => {
     try {
@@ -70,15 +82,10 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
     }
   };
 
-  const calcularPrecioTotal = () => {
-    if (!productoSeleccionado) return 0;
-    return productoSeleccionado.precio * parseInt(formData.cantidad);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.clienteId || !formData.productoId || !formData.cantidad || !formData.hora) {
+    if (!formData.clienteId || !formData.productoId || !formData.cantidad || !formData.hora || !formData.precioTotal) {
       alert('Por favor, complete todos los campos obligatorios');
       return;
     }
@@ -94,13 +101,19 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
       return;
     }
 
+    const precioTotal = parseFloat(formData.precioTotal);
+    if (precioTotal <= 0) {
+      alert('El precio total debe ser mayor a 0');
+      return;
+    }
+
     const venta = {
       clienteId: formData.clienteId,
       productoId: parseInt(formData.productoId),
       productoNombre: productoSeleccionado.nombre,
       cantidad: cantidadVenta,
       precioUnitario: productoSeleccionado.precio,
-      precio: calcularPrecioTotal(),
+      precio: precioTotal,
       hora: formData.hora,
       descripcion: formData.descripcion
     };
@@ -191,11 +204,18 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="total">Total a Pagar</Label>
+              <Label htmlFor="precioTotal">Total a Pagar *</Label>
               <Input
-                value={`S/${calcularPrecioTotal().toFixed(2)}`}
-                readOnly
-                className="bg-gray-100 font-semibold"
+                id="precioTotal"
+                name="precioTotal"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.precioTotal}
+                onChange={handleChange}
+                placeholder="S/0.00"
+                className="font-semibold"
+                required
               />
             </div>
           </div>

@@ -104,7 +104,7 @@ const VentasSection: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalVentasHoy.toFixed(2)}</div>
+            <div className="text-2xl font-bold">S/{totalVentasHoy.toFixed(2)}</div>
           </CardContent>
         </Card>
 
@@ -125,7 +125,7 @@ const VentasSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${ventas.reduce((sum, v) => sum + v.precio, 0).toFixed(2)}
+              S/{ventas.reduce((sum, v) => sum + v.precio, 0).toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -163,7 +163,7 @@ const VentasSection: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">
-                      ${venta.precio.toFixed(2)}
+                      S/{venta.precio.toFixed(2)}
                     </div>
                   </div>
                 </div>

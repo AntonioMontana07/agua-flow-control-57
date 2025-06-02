@@ -14,7 +14,7 @@ const ResumenSection: React.FC = () => {
     },
     {
       title: 'Ventas del Día',
-      value: '$2,450',
+      value: 'S/2,450',
       change: '+8%',
       icon: DollarSign,
       color: 'text-green-600'

@@ -46,17 +46,10 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
   return (
     <Sidebar>
       <SidebarHeader>
-        {/* Logo y usuario */}
-        <div className="flex items-center space-x-3 mb-4">
-          <img 
-            src="/lovable-uploads/82ad7edd-037f-444b-b6ea-1c8b060bc0d5.png" 
-            alt="BIOX Logo" 
-            className="h-8 w-auto"
-          />
-          <div>
-            <h1 className="font-bold text-lg text-primary">BIOX</h1>
-            <p className="text-sm text-muted-foreground">Sistema de Reparto</p>
-          </div>
+        {/* Solo título, sin logo */}
+        <div className="mb-4">
+          <h1 className="font-bold text-lg text-primary">BIOX</h1>
+          <p className="text-sm text-muted-foreground">Sistema de Reparto</p>
         </div>
         
         <div className="bg-muted p-3 rounded-lg">

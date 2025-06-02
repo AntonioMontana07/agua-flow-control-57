@@ -143,7 +143,7 @@ const ReportesSection: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${totalGanancias.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600">S/{totalGanancias.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Ingresos por ventas</p>
           </CardContent>
         </Card>
@@ -154,7 +154,7 @@ const ReportesSection: React.FC = () => {
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">${totalGastos.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600">S/{totalGastos.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Gastos en recargas</p>
           </CardContent>
         </Card>
@@ -166,7 +166,7 @@ const ReportesSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${gananciaNeta.toFixed(2)}
+              S/{gananciaNeta.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">Ganancias - Gastos</p>
           </CardContent>
@@ -197,7 +197,7 @@ const ReportesSection: React.FC = () => {
                 {clienteStats.clienteMasCompras.numeroCompras} compras realizadas
               </p>
               <p className="text-sm text-muted-foreground">
-                Total generado: ${clienteStats.clienteMasCompras.totalGanancias.toFixed(2)}
+                Total generado: S/{clienteStats.clienteMasCompras.totalGanancias.toFixed(2)}
               </p>
             </div>
           </CardContent>
@@ -211,7 +211,7 @@ const ReportesSection: React.FC = () => {
             <div className="space-y-2">
               <p className="text-lg font-semibold">{clienteStats.clienteMayorGanancia.nombre}</p>
               <p className="text-sm text-muted-foreground">
-                ${clienteStats.clienteMayorGanancia.totalGanancias.toFixed(2)} en ganancias
+                S/{clienteStats.clienteMayorGanancia.totalGanancias.toFixed(2)} en ganancias
               </p>
               <p className="text-sm text-muted-foreground">
                 {clienteStats.clienteMayorGanancia.numeroCompras} compras realizadas
@@ -246,7 +246,7 @@ const ReportesSection: React.FC = () => {
                   <TableCell className="font-medium">{venta.clienteNombre}</TableCell>
                   <TableCell>{venta.hora}</TableCell>
                   <TableCell className="font-bold text-green-600">
-                    ${venta.precio.toFixed(2)}
+                    S/{venta.precio.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {venta.descripcion}

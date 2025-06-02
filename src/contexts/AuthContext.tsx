@@ -68,9 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Verificar si hay una sesión guardada
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      console.log('Usuario cargado desde localStorage:', userData.id);
+      try {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        console.log('Sesión restaurada para usuario:', userData.id);
+      } catch (error) {
+        console.error('Error al restaurar sesión:', error);
+        localStorage.removeItem('currentUser');
+      }
     }
     setIsLoading(false);
   }, []);
@@ -94,11 +99,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setUser(userData);
         localStorage.setItem('currentUser', JSON.stringify(userData));
-        console.log('Usuario logueado:', userData.id);
+        console.log('Login exitoso para usuario:', userData.id);
         setIsLoading(false);
         return true;
       }
       
+      console.log('Credenciales incorrectas para email:', email);
       setIsLoading(false);
       return false;
     } catch (error) {
@@ -117,11 +123,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Verificar si el email ya existe
       const existingUser = registeredUsers.find(user => user.email === email);
       if (existingUser) {
+        console.log('Email ya registrado:', email);
         setIsLoading(false);
-        return false; // Email ya registrado
+        return false;
       }
 
-      // Crear nuevo usuario con ID único
+      // Crear nuevo usuario con ID único basado en timestamp y hash
       const newUser: RegisteredUser = {
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         email,
@@ -130,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'repartidor'
       };
 
-      // Agregar a la lista y guardar
+      // Agregar a la lista y guardar inmediatamente
       const updatedUsers = [...registeredUsers, newUser];
       saveRegisteredUsers(updatedUsers);
 
@@ -144,7 +151,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(userData);
       localStorage.setItem('currentUser', JSON.stringify(userData));
-      console.log('Nuevo usuario registrado y logueado:', userData.id);
+      
+      console.log('Registro exitoso y login automático para usuario:', userData.id);
+      console.log('Credenciales guardadas correctamente en localStorage');
+      
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -155,9 +165,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    console.log('Usuario cerrando sesión:', user?.id);
+    console.log('Cerrando sesión para usuario:', user?.id);
     setUser(null);
     localStorage.removeItem('currentUser');
+    console.log('Sesión cerrada. Las credenciales permanecen guardadas para futuros logins.');
   };
 
   return (

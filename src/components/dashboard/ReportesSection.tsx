@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,8 +26,8 @@ const ReportesSection: React.FC = () => {
     try {
       setLoading(true);
       const [comprasData, ventasData, gastosData] = await Promise.all([
-        CompraService.obtenerTodos(),
-        VentaService.obtenerTodos(),
+        CompraService.obtenerTodas(),
+        VentaService.obtenerTodas(),
         GastoService.obtenerTodos()
       ]);
       

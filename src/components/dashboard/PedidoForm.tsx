@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from '@/hooks/use-toast';
 import { Plus, Share } from 'lucide-react';
 import { PedidoService, Pedido } from '@/services/PedidoService';
-import { ClienteService, Cliente } from '@/lib/database';
-import { ProductoService, Producto } from '@/lib/database';
+import { ClienteService } from '@/services/ClienteService';
+import { ProductoService } from '@/services/ProductoService';
+import { Cliente, Producto } from '@/lib/database';
 
 interface PedidoFormProps {
   onPedidoCreated?: () => void;

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, AlertTriangle, Package } from 'lucide-react';
 import ProductForm from './ProductForm';
+import InventoryAlerts from './InventoryAlerts';
 
 const InventarioSection: React.FC = () => {
   const [showProductForm, setShowProductForm] = useState(false);
@@ -39,6 +39,9 @@ const InventarioSection: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Alertas de inventario específicas para esta sección */}
+      <InventoryAlerts productos={productos} />
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-primary">Inventario</h2>

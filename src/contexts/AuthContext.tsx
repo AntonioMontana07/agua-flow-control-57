@@ -68,7 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Verificar si hay una sesión guardada
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      const userData = JSON.parse(savedUser);
+      setUser(userData);
+      console.log('Usuario cargado desde localStorage:', userData.id);
     }
     setIsLoading(false);
   }, []);
@@ -92,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setUser(userData);
         localStorage.setItem('currentUser', JSON.stringify(userData));
+        console.log('Usuario logueado:', userData.id);
         setIsLoading(false);
         return true;
       }
@@ -118,9 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false; // Email ya registrado
       }
 
-      // Crear nuevo usuario
+      // Crear nuevo usuario con ID único
       const newUser: RegisteredUser = {
-        id: Date.now().toString(),
+        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         email,
         password,
         name,
@@ -141,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(userData);
       localStorage.setItem('currentUser', JSON.stringify(userData));
+      console.log('Nuevo usuario registrado y logueado:', userData.id);
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -151,6 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    console.log('Usuario cerrando sesión:', user?.id);
     setUser(null);
     localStorage.removeItem('currentUser');
   };

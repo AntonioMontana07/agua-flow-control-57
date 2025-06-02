@@ -45,6 +45,19 @@ class DatabaseManager {
   private dbName = 'AguaPuraDB';
   private version = 1;
   private db: IDBDatabase | null = null;
+  private currentUserId: string | null = null;
+
+  setCurrentUser(userId: string) {
+    this.currentUserId = userId;
+    console.log('Base de datos configurada para usuario:', userId);
+  }
+
+  private getStoreName(storeName: string): string {
+    if (!this.currentUserId) {
+      throw new Error('No user set for database operations');
+    }
+    return `${storeName}_${this.currentUserId}`;
+  }
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -58,41 +71,67 @@ class DatabaseManager {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-
-        // Crear tabla de productos
-        if (!db.objectStoreNames.contains('productos')) {
-          const productStore = db.createObjectStore('productos', { keyPath: 'id', autoIncrement: true });
-          productStore.createIndex('nombre', 'nombre', { unique: false });
-        }
-
-        // Crear tabla de clientes
-        if (!db.objectStoreNames.contains('clientes')) {
-          const clientStore = db.createObjectStore('clientes', { keyPath: 'id', autoIncrement: true });
-          clientStore.createIndex('nombre', 'nombre', { unique: false });
-        }
-
-        // Crear tabla de compras
-        if (!db.objectStoreNames.contains('compras')) {
-          const compraStore = db.createObjectStore('compras', { keyPath: 'id', autoIncrement: true });
-          compraStore.createIndex('fecha', 'fecha', { unique: false });
-        }
-
-        // Crear tabla de ventas
-        if (!db.objectStoreNames.contains('ventas')) {
-          const ventaStore = db.createObjectStore('ventas', { keyPath: 'id', autoIncrement: true });
-          ventaStore.createIndex('fecha', 'fecha', { unique: false });
-          ventaStore.createIndex('clienteId', 'clienteId', { unique: false });
-        }
+        
+        // No crear stores automáticamente en upgrade
+        // Los stores se crearán dinámicamente cuando sea necesario
       };
     });
+  }
+
+  private async createStoreIfNotExists(storeName: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const userStoreName = this.getStoreName(storeName);
+    
+    if (!this.db.objectStoreNames.contains(userStoreName)) {
+      // Cerrar la conexión actual
+      this.db.close();
+      
+      // Incrementar versión y recrear con el nuevo store
+      this.version += 1;
+      
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(this.dbName, this.version);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve();
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          
+          // Crear el store específico del usuario
+          if (!db.objectStoreNames.contains(userStoreName)) {
+            const store = db.createObjectStore(userStoreName, { keyPath: 'id', autoIncrement: true });
+            
+            // Crear índices según el tipo de store
+            if (storeName === 'productos') {
+              store.createIndex('nombre', 'nombre', { unique: false });
+            } else if (storeName === 'clientes') {
+              store.createIndex('nombre', 'nombre', { unique: false });
+            } else if (storeName === 'compras') {
+              store.createIndex('fecha', 'fecha', { unique: false });
+            } else if (storeName === 'ventas') {
+              store.createIndex('fecha', 'fecha', { unique: false });
+              store.createIndex('clienteId', 'clienteId', { unique: false });
+            }
+          }
+        };
+      });
+    }
   }
 
   async add<T>(storeName: string, data: T): Promise<number> {
     if (!this.db) throw new Error('Database not initialized');
     
+    await this.createStoreIfNotExists(storeName);
+    const userStoreName = this.getStoreName(storeName);
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
+      const transaction = this.db!.transaction([userStoreName], 'readwrite');
+      const store = transaction.objectStore(userStoreName);
       const request = store.add(data);
 
       request.onsuccess = () => resolve(request.result as number);
@@ -103,9 +142,12 @@ class DatabaseManager {
   async getAll<T>(storeName: string): Promise<T[]> {
     if (!this.db) throw new Error('Database not initialized');
     
+    await this.createStoreIfNotExists(storeName);
+    const userStoreName = this.getStoreName(storeName);
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
+      const transaction = this.db!.transaction([userStoreName], 'readonly');
+      const store = transaction.objectStore(userStoreName);
       const request = store.getAll();
 
       request.onsuccess = () => resolve(request.result);
@@ -116,9 +158,12 @@ class DatabaseManager {
   async getById<T>(storeName: string, id: number): Promise<T | undefined> {
     if (!this.db) throw new Error('Database not initialized');
     
+    await this.createStoreIfNotExists(storeName);
+    const userStoreName = this.getStoreName(storeName);
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
+      const transaction = this.db!.transaction([userStoreName], 'readonly');
+      const store = transaction.objectStore(userStoreName);
       const request = store.get(id);
 
       request.onsuccess = () => resolve(request.result);
@@ -129,9 +174,12 @@ class DatabaseManager {
   async update<T>(storeName: string, data: T): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
     
+    await this.createStoreIfNotExists(storeName);
+    const userStoreName = this.getStoreName(storeName);
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
+      const transaction = this.db!.transaction([userStoreName], 'readwrite');
+      const store = transaction.objectStore(userStoreName);
       const request = store.put(data);
 
       request.onsuccess = () => resolve();
@@ -142,9 +190,12 @@ class DatabaseManager {
   async delete(storeName: string, id: number): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
     
+    await this.createStoreIfNotExists(storeName);
+    const userStoreName = this.getStoreName(storeName);
+    
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
+      const transaction = this.db!.transaction([userStoreName], 'readwrite');
+      const store = transaction.objectStore(userStoreName);
       const request = store.delete(id);
 
       request.onsuccess = () => resolve();

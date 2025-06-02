@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,9 @@ const PedidoForm: React.FC<PedidoFormProps> = ({ onPedidoCreated }) => {
     clienteId: '',
     productoId: '',
     cantidad: '',
-    precio: ''
+    precio: '',
+    fechaEntrega: '',
+    horaEntrega: ''
   });
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
@@ -63,20 +66,36 @@ const PedidoForm: React.FC<PedidoFormProps> = ({ onPedidoCreated }) => {
   };
 
   const compartirPorWhatsApp = (pedido: Pedido) => {
-    const mensaje = `🛒 *NUEVO PEDIDO*
+    const mensaje = `🌟 *BIOX - SISTEMA DE REPARTO* 🌟
 
-👤 *Cliente:* ${pedido.clienteNombre}
-📍 *Dirección:* ${pedido.clienteDireccion}
+🛒 *NUEVO PEDIDO DE ENTREGA*
 
-📦 *Producto:* ${pedido.productoNombre}
-📊 *Cantidad:* ${pedido.cantidad}
-💰 *Precio unitario:* S/${pedido.precio.toFixed(2)}
-💵 *Total:* S/${pedido.total.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━
+👤 *CLIENTE*
+${pedido.clienteNombre}
+📍 ${pedido.clienteDireccion}
 
-📅 *Fecha:* ${new Date(pedido.fecha).toLocaleDateString('es-ES')}
-🕐 *Hora:* ${pedido.hora}
+━━━━━━━━━━━━━━━━━━━━━━━
+📦 *DETALLES DEL PEDIDO*
+🏷️ Producto: ${pedido.productoNombre}
+📊 Cantidad: ${pedido.cantidad} unidades
+💰 Precio unitario: S/${pedido.precio.toFixed(2)}
+💵 *TOTAL: S/${pedido.total.toFixed(2)}*
 
-_Pedido generado por BIOX Sistema de Reparto_`;
+━━━━━━━━━━━━━━━━━━━━━━━
+📅 *PROGRAMACIÓN DE ENTREGA*
+🗓️ Fecha: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}
+🕐 Hora: ${pedido.horaEntrega}
+
+━━━━━━━━━━━━━━━━━━━━━━━
+📋 Pedido registrado el ${new Date(pedido.fecha).toLocaleDateString('es-ES')} a las ${pedido.hora}
+
+✨ *BIOX - Gestión eficiente de pedidos* ✨`;
 
     const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
@@ -94,6 +113,15 @@ _Pedido generado por BIOX Sistema de Reparto_`;
       return;
     }
 
+    if (!formData.fechaEntrega || !formData.horaEntrega) {
+      toast({
+        title: "Error",
+        description: "Selecciona fecha y hora de entrega",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const now = new Date();
       const pedidoData = {
@@ -105,7 +133,9 @@ _Pedido generado por BIOX Sistema de Reparto_`;
         cantidad: parseInt(formData.cantidad),
         precio: parseFloat(formData.precio),
         fecha: now.toISOString().split('T')[0],
-        hora: now.toTimeString().slice(0, 5)
+        hora: now.toTimeString().slice(0, 5),
+        fechaEntrega: formData.fechaEntrega,
+        horaEntrega: formData.horaEntrega
       };
 
       const pedidoId = await PedidoService.crear(pedidoData);
@@ -125,7 +155,9 @@ _Pedido generado por BIOX Sistema de Reparto_`;
         clienteId: '',
         productoId: '',
         cantidad: '',
-        precio: ''
+        precio: '',
+        fechaEntrega: '',
+        horaEntrega: ''
       });
       setSelectedCliente(null);
       setSelectedProducto(null);
@@ -141,6 +173,9 @@ _Pedido generado por BIOX Sistema de Reparto_`;
     }
   };
 
+  // Obtener fecha mínima (hoy)
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -149,9 +184,9 @@ _Pedido generado por BIOX Sistema de Reparto_`;
           Agregar Pedido
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nuevo Pedido</DialogTitle>
+          <DialogTitle>Nuevo Pedido de Entrega - BIOX</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -216,14 +251,42 @@ _Pedido generado por BIOX Sistema de Reparto_`;
                 required
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fechaEntrega">Fecha de Entrega</Label>
+              <Input
+                id="fechaEntrega"
+                type="date"
+                min={today}
+                value={formData.fechaEntrega}
+                onChange={(e) => setFormData(prev => ({ ...prev, fechaEntrega: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="horaEntrega">Hora de Entrega</Label>
+              <Input
+                id="horaEntrega"
+                type="time"
+                value={formData.horaEntrega}
+                onChange={(e) => setFormData(prev => ({ ...prev, horaEntrega: e.target.value }))}
+                required
+              />
+            </div>
           </div>
 
           {formData.cantidad && formData.precio && (
             <Card>
               <CardContent className="pt-6">
-                <div className="text-lg font-semibold">
-                  Total: S/{(parseFloat(formData.cantidad || '0') * parseFloat(formData.precio || '0')).toFixed(2)}
+                <div className="text-lg font-semibold text-center">
+                  💰 Total del Pedido: S/{(parseFloat(formData.cantidad || '0') * parseFloat(formData.precio || '0')).toFixed(2)}
                 </div>
+                {formData.fechaEntrega && formData.horaEntrega && (
+                  <div className="text-sm text-muted-foreground text-center mt-2">
+                    📅 Entrega programada: {new Date(formData.fechaEntrega).toLocaleDateString('es-ES')} a las {formData.horaEntrega}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -232,7 +295,7 @@ _Pedido generado por BIOX Sistema de Reparto_`;
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit">
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
               Crear Pedido
             </Button>
           </div>

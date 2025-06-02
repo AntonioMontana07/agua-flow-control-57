@@ -4,7 +4,7 @@ import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Share, Edit, Trash2, Package } from 'lucide-react';
+import { Share, Trash2, Package, Calendar, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { PedidoService, Pedido } from '@/services/PedidoService';
 import PedidoForm from './PedidoForm';
@@ -35,20 +35,36 @@ const PedidosSection: React.FC = () => {
   };
 
   const compartirPorWhatsApp = (pedido: Pedido) => {
-    const mensaje = `🛒 *PEDIDO*
+    const mensaje = `🌟 *BIOX - SISTEMA DE REPARTO* 🌟
 
-👤 *Cliente:* ${pedido.clienteNombre}
-📍 *Dirección:* ${pedido.clienteDireccion}
+🛒 *PEDIDO DE ENTREGA*
 
-📦 *Producto:* ${pedido.productoNombre}
-📊 *Cantidad:* ${pedido.cantidad}
-💰 *Precio unitario:* S/${pedido.precio.toFixed(2)}
-💵 *Total:* S/${pedido.total.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━━
+👤 *CLIENTE*
+${pedido.clienteNombre}
+📍 ${pedido.clienteDireccion}
 
-📅 *Fecha:* ${new Date(pedido.fecha).toLocaleDateString('es-ES')}
-🕐 *Hora:* ${pedido.hora}
+━━━━━━━━━━━━━━━━━━━━━━━
+📦 *DETALLES DEL PEDIDO*
+🏷️ Producto: ${pedido.productoNombre}
+📊 Cantidad: ${pedido.cantidad} unidades
+💰 Precio unitario: S/${pedido.precio.toFixed(2)}
+💵 *TOTAL: S/${pedido.total.toFixed(2)}*
 
-_Pedido generado por BIOX Sistema de Reparto_`;
+━━━━━━━━━━━━━━━━━━━━━━━
+📅 *PROGRAMACIÓN DE ENTREGA*
+🗓️ Fecha: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })}
+🕐 Hora: ${pedido.horaEntrega}
+
+━━━━━━━━━━━━━━━━━━━━━━━
+📋 Pedido registrado el ${new Date(pedido.fecha).toLocaleDateString('es-ES')} a las ${pedido.hora}
+
+✨ *BIOX - Gestión eficiente de pedidos* ✨`;
 
     const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
@@ -81,8 +97,8 @@ _Pedido generado por BIOX Sistema de Reparto_`;
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold text-primary">Pedidos</h2>
-            <p className="text-muted-foreground">Gestión de pedidos de clientes</p>
+            <h2 className="text-3xl font-bold text-primary">Pedidos BIOX</h2>
+            <p className="text-muted-foreground">Gestión de pedidos de entrega</p>
           </div>
         </div>
         <div className="text-center">Cargando...</div>
@@ -94,8 +110,8 @@ _Pedido generado por BIOX Sistema de Reparto_`;
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold text-primary">Pedidos</h2>
-          <p className="text-muted-foreground">Gestión de pedidos de clientes</p>
+          <h2 className="text-3xl font-bold text-primary">Pedidos BIOX</h2>
+          <p className="text-muted-foreground">Gestión de pedidos de entrega</p>
         </div>
         <PedidoForm onPedidoCreated={cargarPedidos} />
       </div>
@@ -141,7 +157,7 @@ _Pedido generado por BIOX Sistema de Reparto_`;
       {/* Tabla de pedidos */}
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Pedidos</CardTitle>
+          <CardTitle>Lista de Pedidos de Entrega</CardTitle>
         </CardHeader>
         <CardContent>
           {pedidos.length === 0 ? (
@@ -153,25 +169,17 @@ _Pedido generado por BIOX Sistema de Reparto_`;
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Fecha</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Cantidad</TableHead>
                   <TableHead>Total</TableHead>
+                  <TableHead>Entrega</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pedidos.map((pedido) => (
                   <TableRow key={pedido.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">
-                          {new Date(pedido.fecha).toLocaleDateString('es-ES')}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{pedido.hora}</div>
-                      </div>
-                    </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">{pedido.clienteNombre}</div>
@@ -189,6 +197,16 @@ _Pedido generado por BIOX Sistema de Reparto_`;
                     </TableCell>
                     <TableCell>
                       <div className="font-bold text-green-600">S/{pedido.total.toFixed(2)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="h-3 w-3" />
+                        <span>{new Date(pedido.fechaEntrega).toLocaleDateString('es-ES')}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{pedido.horaEntrega}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">

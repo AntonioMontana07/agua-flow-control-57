@@ -67,6 +67,8 @@ export interface Pedido {
   total: number;
   fecha: string;
   hora: string;
+  fechaEntrega: string;
+  horaEntrega: string;
   fechaCreacion: string;
 }
 

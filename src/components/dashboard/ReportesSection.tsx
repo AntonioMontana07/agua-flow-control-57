@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ const ReportesSection: React.FC = () => {
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      // Solo cargar datos de compras, ventas y gastos (NO pedidos)
+      // Solo cargar datos reales, sin datos de prueba
       const [comprasData, ventasData, gastosData] = await Promise.all([
         CompraService.obtenerTodas(),
         VentaService.obtenerTodas(),
@@ -35,7 +36,7 @@ const ReportesSection: React.FC = () => {
       setCompras(comprasData);
       setVentas(ventasData);
       setGastos(gastosData);
-      console.log('Reportes cargados sin incluir pedidos (módulo independiente)');
+      console.log('Reportes cargados - datos reales únicamente');
     } catch (error) {
       console.error('Error al cargar datos:', error);
     } finally {
@@ -61,7 +62,7 @@ const ReportesSection: React.FC = () => {
   const ventasFiltradas = filtrarPorFecha(ventas);
   const gastosFiltrados = filtrarPorFecha(gastos);
 
-  // Cálculos financieros solo con compras, ventas y gastos (NO pedidos)
+  // Cálculos financieros solo con datos reales
   const totalCompras = comprasFiltradas.reduce((sum, compra) => sum + compra.total, 0);
   const totalVentas = ventasFiltradas.reduce((sum, venta) => sum + (venta.cantidad * venta.precioUnitario), 0);
   const totalGastos = gastosFiltrados.reduce((sum, gasto) => sum + gasto.cantidad, 0);
@@ -86,7 +87,7 @@ const ReportesSection: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-primary">Reportes</h2>
-          <p className="text-muted-foreground">Análisis de compras, ventas y gastos (Pedidos son independientes)</p>
+          <p className="text-muted-foreground">Análisis de compras, ventas y gastos</p>
         </div>
       </div>
 
@@ -181,7 +182,13 @@ const ReportesSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             {ventasFiltradas.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">No hay ventas en este período</p>
+              <div className="text-center py-8">
+                <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No hay ventas registradas</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Las ventas aparecerán aquí cuando las registres
+                </p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -216,7 +223,13 @@ const ReportesSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             {comprasFiltradas.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">No hay compras en este período</p>
+              <div className="text-center py-8">
+                <TrendingDown className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No hay compras registradas</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Las compras aparecerán aquí cuando las registres
+                </p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -251,7 +264,13 @@ const ReportesSection: React.FC = () => {
           </CardHeader>
           <CardContent>
             {gastosFiltrados.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">No hay gastos en este período</p>
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No hay gastos registrados</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Los gastos aparecerán aquí cuando los registres
+                </p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>

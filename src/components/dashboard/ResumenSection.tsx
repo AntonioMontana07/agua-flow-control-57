@@ -7,29 +7,29 @@ const ResumenSection: React.FC = () => {
   const stats = [
     {
       title: 'Pedidos Hoy',
-      value: '24',
-      change: '+12%',
+      value: '0',
+      change: '+0%',
       icon: Package,
       color: 'text-blue-600'
     },
     {
       title: 'Ventas del Día',
-      value: 'S/2,450',
-      change: '+8%',
+      value: 'S/0.00',
+      change: '+0%',
       icon: DollarSign,
       color: 'text-green-600'
     },
     {
       title: 'Clientes Activos',
-      value: '156',
-      change: '+5%',
+      value: '0',
+      change: '+0%',
       icon: Users,
       color: 'text-purple-600'
     },
     {
       title: 'Entregas Completadas',
-      value: '18',
-      change: '+15%',
+      value: '0',
+      change: '+0%',
       icon: TrendingUp,
       color: 'text-orange-600'
     }
@@ -72,29 +72,12 @@ const ResumenSection: React.FC = () => {
             <CardTitle>Próximas Entregas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { cliente: 'María González', direccion: 'Av. Principal 123', hora: '14:30', estado: 'Pendiente' },
-                { cliente: 'Carlos Ruiz', direccion: 'Calle 45 #78', hora: '15:00', estado: 'En camino' },
-                { cliente: 'Ana Martínez', direccion: 'Carrera 12 #34', hora: '15:30', estado: 'Pendiente' }
-              ].map((entrega, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div>
-                    <p className="font-medium">{entrega.cliente}</p>
-                    <p className="text-sm text-muted-foreground">{entrega.direccion}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{entrega.hora}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      entrega.estado === 'En camino' 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {entrega.estado}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No tienes entregas programadas</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Las entregas aparecerán aquí cuando tengas pedidos activos
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -104,26 +87,12 @@ const ResumenSection: React.FC = () => {
             <CardTitle>Inventario Bajo</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { producto: 'Bidón 20L', cantidad: 5, minimo: 10 },
-                { producto: 'Botella 1L', cantidad: 8, minimo: 15 },
-                { producto: 'Botella 500ml', cantidad: 12, minimo: 20 }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div>
-                    <p className="font-medium">{item.producto}</p>
-                    <p className="text-sm text-muted-foreground">Mínimo: {item.minimo}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-lg font-bold ${
-                      item.cantidad < item.minimo ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {item.cantidad}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="text-center py-8">
+              <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No hay productos con stock bajo</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Los productos con stock bajo aparecerán aquí
+              </p>
             </div>
           </CardContent>
         </Card>

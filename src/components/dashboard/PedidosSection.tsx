@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Share, Trash2, Package, Calendar, Clock, Download } from 'lucide-react';
+import { Trash2, Package, Calendar, Clock, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { PedidoService, Pedido } from '@/services/PedidoService';
 import PedidoForm from './PedidoForm';
@@ -34,7 +35,7 @@ const PedidosSection: React.FC = () => {
     }
   };
 
-  const generarImagenPedido = async (pedido: Pedido, paraCompartir = false) => {
+  const generarImagenPedido = async (pedido: Pedido) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -156,108 +157,16 @@ const PedidosSection: React.FC = () => {
     ctx.lineWidth = 2;
     ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-    if (paraCompartir) {
-      // Retornar el blob para compartir
-      return new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('No se pudo generar la imagen'));
-          }
-        }, 'image/png', 1.0);
-      });
-    } else {
-      // Descargar imagen
-      const link = document.createElement('a');
-      link.download = `pedido-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
-      link.href = canvas.toDataURL();
-      link.click();
+    // Descargar imagen
+    const link = document.createElement('a');
+    link.download = `pedido-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
 
-      toast({
-        title: "Imagen generada",
-        description: "La imagen del pedido se ha descargado correctamente"
-      });
-    }
-  };
-
-  const compartirPorWhatsApp = async (pedido: Pedido) => {
-    try {
-      console.log('Iniciando proceso de compartir pedido:', pedido.id);
-      
-      // Generar imagen del pedido
-      const imageBlob = await generarImagenPedido(pedido, true);
-      
-      if (!imageBlob) {
-        throw new Error('No se pudo generar la imagen del pedido');
-      }
-
-      console.log('Imagen generada correctamente, intentando compartir...');
-
-      // Crear mensaje de WhatsApp
-      const mensaje = `🌟 *NUEVO PEDIDO BIOX* 🌟
-
-👤 Cliente: ${pedido.clienteNombre}
-📍 Dirección: ${pedido.clienteDireccion}
-📦 Producto: ${pedido.productoNombre}
-📊 Cantidad: ${pedido.cantidad} unidades
-💵 Total: S/${pedido.total.toFixed(2)}
-📅 Entrega: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES')} a las ${pedido.horaEntrega}
-
-✨ BIOX - Gestión eficiente de pedidos ✨`;
-
-      // Intentar usar Web Share API solo si está disponible y el contexto es seguro
-      if (navigator.share && navigator.canShare) {
-        try {
-          const file = new File([imageBlob], `pedido-biox-${pedido.id}.png`, { type: 'image/png' });
-          
-          // Verificar si se pueden compartir archivos
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: 'Pedido BIOX',
-              text: mensaje,
-              files: [file]
-            });
-            
-            toast({
-              title: "Pedido compartido",
-              description: "Se ha compartido el pedido correctamente"
-            });
-            return;
-          }
-        } catch (shareError) {
-          console.log('Web Share API falló, usando método alternativo:', shareError);
-        }
-      }
-
-      // Método alternativo: abrir WhatsApp con mensaje
-      const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-      window.open(url, '_blank');
-      
-      // También descargar la imagen automáticamente
-      const link = document.createElement('a');
-      link.download = `pedido-biox-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
-      link.href = URL.createObjectURL(imageBlob);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Limpiar URL temporal
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-
-      toast({
-        title: "Pedido preparado para compartir",
-        description: "Se ha abierto WhatsApp y descargado la imagen del pedido"
-      });
-
-    } catch (error) {
-      console.error('Error al compartir:', error);
-      toast({
-        title: "Error al compartir",
-        description: "No se pudo preparar el pedido para compartir. Inténtalo de nuevo.",
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Imagen generada",
+      description: "La imagen del pedido se ha descargado correctamente"
+    });
   };
 
   const eliminarPedido = async (id: number) => {
@@ -402,14 +311,6 @@ const PedidosSection: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => compartirPorWhatsApp(pedido)}
-                          title="Compartir imagen por WhatsApp"
-                        >
-                          <Share className="h-4 w-4" />
-                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

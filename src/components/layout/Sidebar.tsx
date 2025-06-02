@@ -22,7 +22,8 @@ import {
   BarChart3, 
   LogOut, 
   Sun, 
-  Moon 
+  Moon,
+  Receipt
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,6 +39,7 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
     { id: 'resumen', label: 'Resumen', icon: Home },
     { id: 'inventario', label: 'Inventario', icon: Package },
     { id: 'compras', label: 'Compras', icon: ShoppingCart },
+    { id: 'gastos', label: 'Gastos', icon: Receipt },
     { id: 'ventas', label: 'Ventas', icon: TrendingUp },
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'reportes', label: 'Reportes', icon: BarChart3 },

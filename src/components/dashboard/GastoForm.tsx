@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,20 +11,20 @@ import { CalendarIcon, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { Compra } from '@/lib/database';
+import { Gasto } from '@/lib/database';
 
-interface CompraFormProps {
-  onSubmit: (compra: any) => void;
+interface GastoFormProps {
+  onSubmit: (gasto: any) => void;
   onCancel: () => void;
-  initialData?: Compra | null;
+  initialData?: Gasto | null;
   isEditing?: boolean;
 }
 
-const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData, isEditing = false }) => {
+const GastoForm: React.FC<GastoFormProps> = ({ onSubmit, onCancel, initialData, isEditing = false }) => {
   const [formData, setFormData] = useState({
+    titulo: initialData?.titulo || '',
     cantidad: initialData?.cantidad?.toString() || '',
-    descripcion: initialData?.descripcion || '',
-    precio: initialData?.precio?.toString() || ''
+    descripcion: initialData?.descripcion || ''
   });
   const [fecha, setFecha] = useState<Date>(
     initialData?.fecha ? new Date(initialData.fecha) : new Date()
@@ -41,26 +41,26 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.cantidad || !fecha || !formData.precio) {
+    if (!formData.titulo || !formData.cantidad || !fecha) {
       alert('Por favor, complete todos los campos obligatorios');
       return;
     }
 
-    const compra = {
-      cantidad: parseInt(formData.cantidad),
-      fecha: fecha.toISOString().split('T')[0],
+    const gasto = {
+      titulo: formData.titulo,
+      cantidad: parseFloat(formData.cantidad),
       descripcion: formData.descripcion,
-      precio: parseFloat(formData.precio)
+      fecha: fecha.toISOString().split('T')[0]
     };
 
-    onSubmit(compra);
+    onSubmit(gasto);
   };
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>
-          {isEditing ? 'Editar Compra de Recarga' : 'Agregar Nueva Compra de Recarga'}
+          {isEditing ? 'Editar Gasto' : 'Agregar Nuevo Gasto'}
         </CardTitle>
         <Button variant="ghost" size="sm" onClick={onCancel}>
           <X className="h-4 w-4" />
@@ -70,21 +70,35 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="cantidad">Cantidad de Garrafones *</Label>
+              <Label htmlFor="titulo">Título del Gasto *</Label>
               <Input
-                id="cantidad"
-                name="cantidad"
-                type="number"
-                value={formData.cantidad}
+                id="titulo"
+                name="titulo"
+                type="text"
+                value={formData.titulo}
                 onChange={handleChange}
-                placeholder="Número de garrafones"
-                min="1"
+                placeholder="Ej: Gasolina, Mantenimiento, etc."
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Fecha de Compra *</Label>
+              <Label htmlFor="cantidad">Cantidad Gastada (S/) *</Label>
+              <Input
+                id="cantidad"
+                name="cantidad"
+                type="number"
+                step="0.01"
+                value={formData.cantidad}
+                onChange={handleChange}
+                placeholder="0.00"
+                min="0"
+                required
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>Fecha del Gasto *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -109,31 +123,16 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
                 </PopoverContent>
               </Popover>
             </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="precio">Precio por Unidad (S/) *</Label>
-              <Input
-                id="precio"
-                name="precio"
-                type="number"
-                step="0.01"
-                value={formData.precio}
-                onChange={handleChange}
-                placeholder="15.00"
-                min="0"
-                required
-              />
-            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="descripcion">Descripción (Opcional)</Label>
+            <Label htmlFor="descripcion">Descripción</Label>
             <Textarea
               id="descripcion"
               name="descripcion"
               value={formData.descripcion}
               onChange={handleChange}
-              placeholder="Ej: Recarga semanal, compra de emergencia, etc..."
+              placeholder="Describe el gasto realizado..."
               rows={3}
             />
           </div>
@@ -143,7 +142,7 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
               Cancelar
             </Button>
             <Button type="submit" className="bg-primary hover:bg-primary/90">
-              {isEditing ? 'Actualizar Compra' : 'Registrar Compra'}
+              {isEditing ? 'Actualizar Gasto' : 'Registrar Gasto'}
             </Button>
           </div>
         </form>
@@ -152,4 +151,4 @@ const CompraForm: React.FC<CompraFormProps> = ({ onSubmit, onCancel, initialData
   );
 };
 
-export default CompraForm;
+export default GastoForm;

@@ -45,6 +45,15 @@ export interface Venta {
   fechaCreacion: string;
 }
 
+export interface Gasto {
+  id?: number;
+  titulo: string;
+  cantidad: number;
+  descripcion: string;
+  fecha: string;
+  fechaCreacion: string;
+}
+
 class DatabaseManager {
   private dbName = 'AguaPuraDB';
   private version = 1;
@@ -120,6 +129,8 @@ class DatabaseManager {
             } else if (storeName === 'ventas') {
               store.createIndex('fecha', 'fecha', { unique: false });
               store.createIndex('clienteId', 'clienteId', { unique: false });
+            } else if (storeName === 'gastos') {
+              store.createIndex('fecha', 'fecha', { unique: false });
             }
           }
         };

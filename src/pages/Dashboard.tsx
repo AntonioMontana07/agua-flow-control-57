@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -5,6 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import ResumenSection from '@/components/dashboard/ResumenSection';
 import InventarioSection from '@/components/dashboard/InventarioSection';
 import ComprasSection from '@/components/dashboard/ComprasSection';
+import GastosSection from '@/components/dashboard/GastosSection';
 import VentasSection from '@/components/dashboard/VentasSection';
 import ClientesSection from '@/components/dashboard/ClientesSection';
 import ReportesSection from '@/components/dashboard/ReportesSection';
@@ -51,6 +53,8 @@ const Dashboard: React.FC = () => {
         return <InventarioSection />;
       case 'compras':
         return <ComprasSection />;
+      case 'gastos':
+        return <GastosSection />;
       case 'ventas':
         return <VentasSection />;
       case 'clientes':

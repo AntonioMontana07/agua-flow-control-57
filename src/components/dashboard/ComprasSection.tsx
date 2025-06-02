@@ -1,51 +1,75 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Package, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Package, Calendar, DollarSign, Edit, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import CompraForm from './CompraForm';
-
-interface Compra {
-  id: number;
-  cantidad: number;
-  fecha: string;
-  descripcion: string;
-  precio: number;
-  total: number;
-}
+import { CompraService } from '@/services/CompraService';
+import { Compra } from '@/lib/database';
 
 const ComprasSection: React.FC = () => {
-  const [compras, setCompras] = useState<Compra[]>([
-    {
-      id: 1,
-      cantidad: 50,
-      fecha: '2024-01-15',
-      descripcion: 'Recarga semanal de garrafones',
-      precio: 15.00,
-      total: 750.00
-    },
-    {
-      id: 2,
-      cantidad: 30,
-      fecha: '2024-01-10',
-      descripcion: 'Recarga de emergencia',
-      precio: 15.00,
-      total: 450.00
-    }
-  ]);
-  
+  const [compras, setCompras] = useState<Compra[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingCompra, setEditingCompra] = useState<Compra | null>(null);
 
-  const handleAddCompra = (nuevaCompra: Omit<Compra, 'id' | 'total'>) => {
-    const compra: Compra = {
-      ...nuevaCompra,
-      id: compras.length + 1,
-      total: nuevaCompra.cantidad * nuevaCompra.precio
-    };
-    
-    setCompras(prev => [compra, ...prev]);
+  useEffect(() => {
+    cargarCompras();
+  }, []);
+
+  const cargarCompras = async () => {
+    try {
+      const comprasData = await CompraService.obtenerTodas();
+      setCompras(comprasData);
+    } catch (error) {
+      console.error('Error al cargar compras:', error);
+    }
+  };
+
+  const handleAddCompra = async (nuevaCompra: Omit<Compra, 'id' | 'total'>) => {
+    try {
+      if (editingCompra) {
+        // Actualizar compra existente
+        const compraActualizada: Compra = {
+          ...editingCompra,
+          ...nuevaCompra,
+          total: nuevaCompra.cantidad * nuevaCompra.precio
+        };
+        await CompraService.actualizar(compraActualizada);
+        setEditingCompra(null);
+      } else {
+        // Crear nueva compra
+        await CompraService.crear(nuevaCompra);
+      }
+      
+      await cargarCompras();
+      setShowForm(false);
+    } catch (error) {
+      console.error('Error al guardar compra:', error);
+      alert('Error al guardar la compra');
+    }
+  };
+
+  const handleEditCompra = (compra: Compra) => {
+    setEditingCompra(compra);
+    setShowForm(true);
+  };
+
+  const handleDeleteCompra = async (id: number) => {
+    if (confirm('¿Estás seguro de que deseas eliminar esta compra?')) {
+      try {
+        await CompraService.eliminar(id);
+        await cargarCompras();
+      } catch (error) {
+        console.error('Error al eliminar compra:', error);
+        alert('Error al eliminar la compra');
+      }
+    }
+  };
+
+  const handleCancelForm = () => {
     setShowForm(false);
+    setEditingCompra(null);
   };
 
   const totalCompras = compras.reduce((sum, compra) => sum + compra.total, 0);
@@ -55,7 +79,9 @@ const ComprasSection: React.FC = () => {
     return (
       <CompraForm 
         onSubmit={handleAddCompra}
-        onCancel={() => setShowForm(false)}
+        onCancel={handleCancelForm}
+        initialData={editingCompra}
+        isEditing={!!editingCompra}
       />
     );
   }
@@ -120,6 +146,7 @@ const ComprasSection: React.FC = () => {
                 <TableHead>Precio Unitario</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Descripción</TableHead>
+                <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -137,6 +164,25 @@ const ComprasSection: React.FC = () => {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {compra.descripcion || 'Sin descripción'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditCompra(compra)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteCompra(compra.id!)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

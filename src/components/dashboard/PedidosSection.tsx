@@ -183,47 +183,78 @@ const PedidosSection: React.FC = () => {
 
   const compartirPorWhatsApp = async (pedido: Pedido) => {
     try {
+      console.log('Iniciando proceso de compartir pedido:', pedido.id);
+      
       // Generar imagen del pedido
       const imageBlob = await generarImagenPedido(pedido, true);
       
-      if (imageBlob && navigator.share) {
-        // Usar Web Share API si está disponible
-        const file = new File([imageBlob], `pedido-biox-${pedido.id}.png`, { type: 'image/png' });
-        await navigator.share({
-          title: 'Pedido BIOX',
-          text: `Pedido de ${pedido.clienteNombre} - ${pedido.productoNombre}`,
-          files: [file]
-        });
-      } else {
-        // Fallback: crear URL temporal y abrir WhatsApp
-        const imageUrl = URL.createObjectURL(imageBlob!);
-        const mensaje = `🌟 *NUEVO PEDIDO BIOX* 🌟
+      if (!imageBlob) {
+        throw new Error('No se pudo generar la imagen del pedido');
+      }
 
-📱 Ver imagen del pedido: ${imageUrl}
+      console.log('Imagen generada correctamente, intentando compartir...');
+
+      // Crear mensaje de WhatsApp
+      const mensaje = `🌟 *NUEVO PEDIDO BIOX* 🌟
 
 👤 Cliente: ${pedido.clienteNombre}
+📍 Dirección: ${pedido.clienteDireccion}
 📦 Producto: ${pedido.productoNombre}
+📊 Cantidad: ${pedido.cantidad} unidades
 💵 Total: S/${pedido.total.toFixed(2)}
 📅 Entrega: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES')} a las ${pedido.horaEntrega}
 
 ✨ BIOX - Gestión eficiente de pedidos ✨`;
 
-        const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-        window.open(url, '_blank');
-        
-        // Limpiar URL temporal después de un tiempo
-        setTimeout(() => URL.revokeObjectURL(imageUrl), 60000);
+      // Intentar usar Web Share API solo si está disponible y el contexto es seguro
+      if (navigator.share && navigator.canShare) {
+        try {
+          const file = new File([imageBlob], `pedido-biox-${pedido.id}.png`, { type: 'image/png' });
+          
+          // Verificar si se pueden compartir archivos
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'Pedido BIOX',
+              text: mensaje,
+              files: [file]
+            });
+            
+            toast({
+              title: "Pedido compartido",
+              description: "Se ha compartido el pedido correctamente"
+            });
+            return;
+          }
+        } catch (shareError) {
+          console.log('Web Share API falló, usando método alternativo:', shareError);
+        }
       }
 
+      // Método alternativo: abrir WhatsApp con mensaje
+      const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+      window.open(url, '_blank');
+      
+      // También descargar la imagen automáticamente
+      const link = document.createElement('a');
+      link.download = `pedido-biox-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
+      link.href = URL.createObjectURL(imageBlob);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Limpiar URL temporal
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+
       toast({
-        title: "Compartiendo pedido",
-        description: "Se ha generado la imagen para compartir por WhatsApp"
+        title: "Pedido preparado para compartir",
+        description: "Se ha abierto WhatsApp y descargado la imagen del pedido"
       });
+
     } catch (error) {
       console.error('Error al compartir:', error);
       toast({
-        title: "Error",
-        description: "No se pudo compartir el pedido",
+        title: "Error al compartir",
+        description: "No se pudo preparar el pedido para compartir. Inténtalo de nuevo.",
         variant: "destructive"
       });
     }

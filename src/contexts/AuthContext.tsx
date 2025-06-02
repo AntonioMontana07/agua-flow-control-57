@@ -8,6 +8,14 @@ interface User {
   role: string;
 }
 
+interface RegisteredUser {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+}
+
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
@@ -30,13 +38,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Usuario de prueba
-  const testUser = {
+  // Usuario de prueba inicial
+  const testUser: RegisteredUser = {
     id: '1',
     email: 'repartidor@biox.com',
     password: 'password123',
     name: 'Juan Carlos Pérez',
     role: 'repartidor'
+  };
+
+  // Función para obtener usuarios registrados
+  const getRegisteredUsers = (): RegisteredUser[] => {
+    const users = localStorage.getItem('registeredUsers');
+    if (users) {
+      return JSON.parse(users);
+    }
+    // Si no hay usuarios, inicializar con el usuario de prueba
+    const initialUsers = [testUser];
+    localStorage.setItem('registeredUsers', JSON.stringify(initialUsers));
+    return initialUsers;
+  };
+
+  // Función para guardar usuarios registrados
+  const saveRegisteredUsers = (users: RegisteredUser[]) => {
+    localStorage.setItem('registeredUsers', JSON.stringify(users));
   };
 
   useEffect(() => {
@@ -51,40 +76,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simular autenticación con el usuario de prueba
-    if (email === testUser.email && password === testUser.password) {
+    try {
+      const registeredUsers = getRegisteredUsers();
+      const foundUser = registeredUsers.find(
+        user => user.email === email && user.password === password
+      );
+
+      if (foundUser) {
+        const userData = {
+          id: foundUser.id,
+          email: foundUser.email,
+          name: foundUser.name,
+          role: foundUser.role
+        };
+        
+        setUser(userData);
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        setIsLoading(false);
+        return true;
+      }
+      
+      setIsLoading(false);
+      return false;
+    } catch (error) {
+      console.error('Error en login:', error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+    setIsLoading(true);
+    
+    try {
+      const registeredUsers = getRegisteredUsers();
+      
+      // Verificar si el email ya existe
+      const existingUser = registeredUsers.find(user => user.email === email);
+      if (existingUser) {
+        setIsLoading(false);
+        return false; // Email ya registrado
+      }
+
+      // Crear nuevo usuario
+      const newUser: RegisteredUser = {
+        id: Date.now().toString(),
+        email,
+        password,
+        name,
+        role: 'repartidor'
+      };
+
+      // Agregar a la lista y guardar
+      const updatedUsers = [...registeredUsers, newUser];
+      saveRegisteredUsers(updatedUsers);
+
+      // Iniciar sesión automáticamente
       const userData = {
-        id: testUser.id,
-        email: testUser.email,
-        name: testUser.name,
-        role: testUser.role
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role
       };
       
       setUser(userData);
       localStorage.setItem('currentUser', JSON.stringify(userData));
       setIsLoading(false);
       return true;
+    } catch (error) {
+      console.error('Error en registro:', error);
+      setIsLoading(false);
+      return false;
     }
-    
-    setIsLoading(false);
-    return false;
-  };
-
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
-    setIsLoading(true);
-    
-    // Simular registro exitoso
-    const userData = {
-      id: Date.now().toString(),
-      email,
-      name,
-      role: 'repartidor'
-    };
-    
-    setUser(userData);
-    localStorage.setItem('currentUser', JSON.stringify(userData));
-    setIsLoading(false);
-    return true;
   };
 
   const logout = () => {

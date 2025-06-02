@@ -34,6 +34,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "La contraseña debe tener al menos 6 caracteres",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     const success = await register(email, password, name);
@@ -41,12 +50,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
     if (success) {
       toast({
         title: "¡Registro exitoso!",
-        description: "Tu cuenta ha sido creada correctamente",
+        description: "Tu cuenta ha sido creada correctamente y ya estás conectado",
       });
     } else {
       toast({
         title: "Error de registro",
-        description: "No se pudo crear la cuenta",
+        description: "Este email ya está registrado. Intenta con otro email o inicia sesión.",
         variant: "destructive",
       });
     }
@@ -132,6 +141,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
             />
+          </div>
+
+          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+            <p className="font-medium mb-1">Nota:</p>
+            <p>Tus datos se guardarán de forma segura y podrás iniciar sesión en cualquier momento con tu email y contraseña.</p>
           </div>
         </CardContent>
         

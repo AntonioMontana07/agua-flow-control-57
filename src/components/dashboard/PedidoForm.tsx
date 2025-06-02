@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Share } from 'lucide-react';
-import { PedidoService, Pedido } from '@/services/PedidoService';
+import { Plus } from 'lucide-react';
+import { PedidoService } from '@/services/PedidoService';
 import { ClienteService } from '@/services/ClienteService';
 import { ProductoService } from '@/services/ProductoService';
 import { Cliente, Producto } from '@/lib/database';
@@ -65,42 +65,6 @@ const PedidoForm: React.FC<PedidoFormProps> = ({ onPedidoCreated }) => {
     }));
   };
 
-  const compartirPorWhatsApp = (pedido: Pedido) => {
-    const mensaje = `🌟 *BIOX - SISTEMA DE REPARTO* 🌟
-
-🛒 *NUEVO PEDIDO DE ENTREGA*
-
-━━━━━━━━━━━━━━━━━━━━━━━
-👤 *CLIENTE*
-${pedido.clienteNombre}
-📍 ${pedido.clienteDireccion}
-
-━━━━━━━━━━━━━━━━━━━━━━━
-📦 *DETALLES DEL PEDIDO*
-🏷️ Producto: ${pedido.productoNombre}
-📊 Cantidad: ${pedido.cantidad} unidades
-💰 Precio unitario: S/${pedido.precio.toFixed(2)}
-💵 *TOTAL: S/${pedido.total.toFixed(2)}*
-
-━━━━━━━━━━━━━━━━━━━━━━━
-📅 *PROGRAMACIÓN DE ENTREGA*
-🗓️ Fecha: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })}
-🕐 Hora: ${pedido.horaEntrega}
-
-━━━━━━━━━━━━━━━━━━━━━━━
-📋 Pedido registrado el ${new Date(pedido.fecha).toLocaleDateString('es-ES')} a las ${pedido.hora}
-
-✨ *BIOX - Gestión eficiente de pedidos* ✨`;
-
-    const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, '_blank');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -138,19 +102,14 @@ ${pedido.clienteNombre}
         horaEntrega: formData.horaEntrega
       };
 
-      const pedidoId = await PedidoService.crear(pedidoData);
-      const pedidoCreado = await PedidoService.obtenerPorId(pedidoId);
+      await PedidoService.crear(pedidoData);
 
       toast({
         title: "¡Pedido creado!",
         description: "El pedido se ha registrado correctamente"
       });
 
-      // Preguntar si quiere compartir por WhatsApp
-      if (pedidoCreado && window.confirm('¿Deseas compartir este pedido por WhatsApp?')) {
-        compartirPorWhatsApp(pedidoCreado);
-      }
-
+      // Limpiar formulario y cerrar modal sin preguntar por compartir
       setFormData({
         clienteId: '',
         productoId: '',

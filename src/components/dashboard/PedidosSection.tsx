@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,169 +34,199 @@ const PedidosSection: React.FC = () => {
     }
   };
 
-  const generarImagenPedido = async (pedido: Pedido) => {
+  const generarImagenPedido = async (pedido: Pedido, paraCompartir = false) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) return null;
 
-    // Configurar canvas
+    // Configurar canvas con colores BIOX
     canvas.width = 600;
     canvas.height = 800;
 
-    // Fondo blanco
-    ctx.fillStyle = '#ffffff';
+    // Fondo con gradiente BIOX
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#f3f1ff'); // biox-50
+    gradient.addColorStop(1, '#ebe5ff'); // biox-100
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Configurar texto
-    ctx.fillStyle = '#000000';
+    // Marco decorativo con colores BIOX
+    ctx.strokeStyle = '#843dff'; // biox-500
+    ctx.lineWidth = 4;
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+    // Configurar texto centrado
     ctx.textAlign = 'center';
 
-    // Título BIOX
-    ctx.font = 'bold 32px Arial';
-    ctx.fillStyle = '#2563eb';
-    ctx.fillText('🌟 BIOX - SISTEMA DE REPARTO 🌟', 300, 50);
+    // Logo/Título BIOX con colores oficiales
+    ctx.font = 'bold 36px Arial';
+    ctx.fillStyle = '#843dff'; // biox-500
+    ctx.fillText('🌟 BIOX 🌟', 300, 70);
 
     // Subtítulo
     ctx.font = 'bold 24px Arial';
-    ctx.fillStyle = '#000000';
-    ctx.fillText('🛒 PEDIDO DE ENTREGA', 300, 100);
+    ctx.fillStyle = '#6b21a8'; // biox-700
+    ctx.fillText('SISTEMA DE REPARTO', 300, 110);
 
-    // Línea separadora
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 2;
+    // Línea separadora con color BIOX
+    ctx.strokeStyle = '#9f75ff'; // biox-400
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(50, 120);
-    ctx.lineTo(550, 120);
+    ctx.moveTo(80, 140);
+    ctx.lineTo(520, 140);
     ctx.stroke();
 
-    // Información del cliente
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#1f2937';
-    ctx.fillText('👤 CLIENTE', 50, 160);
+    // Información del cliente centrada
+    ctx.font = 'bold 22px Arial';
+    ctx.fillStyle = '#581c87'; // biox-800
+    ctx.fillText('👤 CLIENTE', 300, 180);
     
-    ctx.font = '18px Arial';
-    ctx.fillStyle = '#374151';
-    ctx.fillText(pedido.clienteNombre, 50, 190);
-    ctx.fillText(`📍 ${pedido.clienteDireccion}`, 50, 220);
+    ctx.font = '20px Arial';
+    ctx.fillStyle = '#4c1d95'; // biox-900
+    ctx.fillText(pedido.clienteNombre, 300, 210);
+    ctx.fillText(`📍 ${pedido.clienteDireccion}`, 300, 240);
 
     // Línea separadora
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#9f75ff';
     ctx.beginPath();
-    ctx.moveTo(50, 240);
-    ctx.lineTo(550, 240);
+    ctx.moveTo(80, 270);
+    ctx.lineTo(520, 270);
     ctx.stroke();
 
-    // Detalles del pedido
-    ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#1f2937';
-    ctx.fillText('📦 DETALLES DEL PEDIDO', 50, 280);
+    // Detalles del pedido centrados
+    ctx.font = 'bold 22px Arial';
+    ctx.fillStyle = '#581c87';
+    ctx.fillText('📦 DETALLES DEL PEDIDO', 300, 310);
 
     ctx.font = '18px Arial';
-    ctx.fillStyle = '#374151';
-    ctx.fillText(`🏷️ Producto: ${pedido.productoNombre}`, 50, 310);
-    ctx.fillText(`📊 Cantidad: ${pedido.cantidad} unidades`, 50, 340);
-    ctx.fillText(`💰 Precio unitario: S/${pedido.precio.toFixed(2)}`, 50, 370);
+    ctx.fillStyle = '#4c1d95';
+    ctx.fillText(`🏷️ Producto: ${pedido.productoNombre}`, 300, 340);
+    ctx.fillText(`📊 Cantidad: ${pedido.cantidad} unidades`, 300, 370);
+    ctx.fillText(`💰 Precio unitario: S/${pedido.precio.toFixed(2)}`, 300, 400);
     
-    ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#059669';
-    ctx.fillText(`💵 TOTAL: S/${pedido.total.toFixed(2)}`, 50, 410);
+    ctx.font = 'bold 24px Arial';
+    ctx.fillStyle = '#843dff'; // biox-500
+    ctx.fillText(`💵 TOTAL: S/${pedido.total.toFixed(2)}`, 300, 440);
 
     // Línea separadora
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#9f75ff';
     ctx.beginPath();
-    ctx.moveTo(50, 430);
-    ctx.lineTo(550, 430);
+    ctx.moveTo(80, 470);
+    ctx.lineTo(520, 470);
     ctx.stroke();
 
-    // Programación de entrega
-    ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#1f2937';
-    ctx.fillText('📅 PROGRAMACIÓN DE ENTREGA', 50, 470);
+    // Programación de entrega centrada
+    ctx.font = 'bold 22px Arial';
+    ctx.fillStyle = '#581c87';
+    ctx.fillText('📅 PROGRAMACIÓN DE ENTREGA', 300, 510);
 
     ctx.font = '18px Arial';
-    ctx.fillStyle = '#374151';
+    ctx.fillStyle = '#4c1d95';
     const fechaEntrega = new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     });
-    ctx.fillText(`🗓️ Fecha: ${fechaEntrega}`, 50, 500);
-    ctx.fillText(`🕐 Hora: ${pedido.horaEntrega}`, 50, 530);
+    ctx.fillText(`🗓️ Fecha: ${fechaEntrega}`, 300, 540);
+    ctx.fillText(`🕐 Hora: ${pedido.horaEntrega}`, 300, 570);
 
     // Línea separadora
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#9f75ff';
     ctx.beginPath();
-    ctx.moveTo(50, 550);
-    ctx.lineTo(550, 550);
+    ctx.moveTo(80, 600);
+    ctx.lineTo(520, 600);
     ctx.stroke();
 
-    // Información de registro
+    // Información de registro centrada
     ctx.font = '16px Arial';
-    ctx.fillStyle = '#6b7280';
+    ctx.fillStyle = '#6b21a8'; // biox-700
     const fechaRegistro = new Date(pedido.fecha).toLocaleDateString('es-ES');
-    ctx.fillText(`📋 Pedido registrado el ${fechaRegistro} a las ${pedido.hora}`, 50, 590);
+    ctx.fillText(`📋 Pedido registrado el ${fechaRegistro} a las ${pedido.hora}`, 300, 640);
 
-    // Footer
-    ctx.textAlign = 'center';
+    // Footer con branding BIOX centrado
     ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#2563eb';
-    ctx.fillText('✨ BIOX - Gestión eficiente de pedidos ✨', 300, 650);
+    ctx.fillStyle = '#843dff'; // biox-500
+    ctx.fillText('✨ BIOX - Gestión eficiente de pedidos ✨', 300, 700);
 
-    // Marco decorativo
-    ctx.strokeStyle = '#2563eb';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+    // Marco interno decorativo
+    ctx.strokeStyle = '#bea6ff'; // biox-300
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
 
-    // Descargar imagen
-    const link = document.createElement('a');
-    link.download = `pedido-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
-    link.href = canvas.toDataURL();
-    link.click();
+    if (paraCompartir) {
+      // Retornar el blob para compartir
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('No se pudo generar la imagen'));
+          }
+        }, 'image/png', 1.0);
+      });
+    } else {
+      // Descargar imagen
+      const link = document.createElement('a');
+      link.download = `pedido-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
+      link.href = canvas.toDataURL();
+      link.click();
 
-    toast({
-      title: "Imagen generada",
-      description: "La imagen del pedido se ha descargado correctamente"
-    });
+      toast({
+        title: "Imagen generada",
+        description: "La imagen del pedido se ha descargado correctamente"
+      });
+    }
   };
 
-  const compartirPorWhatsApp = (pedido: Pedido) => {
-    const mensaje = `🌟 *BIOX - SISTEMA DE REPARTO* 🌟
+  const compartirPorWhatsApp = async (pedido: Pedido) => {
+    try {
+      // Generar imagen del pedido
+      const imageBlob = await generarImagenPedido(pedido, true);
+      
+      if (imageBlob && navigator.share) {
+        // Usar Web Share API si está disponible
+        const file = new File([imageBlob], `pedido-biox-${pedido.id}.png`, { type: 'image/png' });
+        await navigator.share({
+          title: 'Pedido BIOX',
+          text: `Pedido de ${pedido.clienteNombre} - ${pedido.productoNombre}`,
+          files: [file]
+        });
+      } else {
+        // Fallback: crear URL temporal y abrir WhatsApp
+        const imageUrl = URL.createObjectURL(imageBlob!);
+        const mensaje = `🌟 *NUEVO PEDIDO BIOX* 🌟
 
-🛒 *PEDIDO DE ENTREGA*
+📱 Ver imagen del pedido: ${imageUrl}
 
-━━━━━━━━━━━━━━━━━━━━━━━
-👤 *CLIENTE*
-${pedido.clienteNombre}
-📍 ${pedido.clienteDireccion}
+👤 Cliente: ${pedido.clienteNombre}
+📦 Producto: ${pedido.productoNombre}
+💵 Total: S/${pedido.total.toFixed(2)}
+📅 Entrega: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES')} a las ${pedido.horaEntrega}
 
-━━━━━━━━━━━━━━━━━━━━━━━
-📦 *DETALLES DEL PEDIDO*
-🏷️ Producto: ${pedido.productoNombre}
-📊 Cantidad: ${pedido.cantidad} unidades
-💰 Precio unitario: S/${pedido.precio.toFixed(2)}
-💵 *TOTAL: S/${pedido.total.toFixed(2)}*
+✨ BIOX - Gestión eficiente de pedidos ✨`;
 
-━━━━━━━━━━━━━━━━━━━━━━━
-📅 *PROGRAMACIÓN DE ENTREGA*
-🗓️ Fecha: ${new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })}
-🕐 Hora: ${pedido.horaEntrega}
+        const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+        window.open(url, '_blank');
+        
+        // Limpiar URL temporal después de un tiempo
+        setTimeout(() => URL.revokeObjectURL(imageUrl), 60000);
+      }
 
-━━━━━━━━━━━━━━━━━━━━━━━
-📋 Pedido registrado el ${new Date(pedido.fecha).toLocaleDateString('es-ES')} a las ${pedido.hora}
-
-✨ *BIOX - Gestión eficiente de pedidos* ✨`;
-
-    const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, '_blank');
+      toast({
+        title: "Compartiendo pedido",
+        description: "Se ha generado la imagen para compartir por WhatsApp"
+      });
+    } catch (error) {
+      console.error('Error al compartir:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo compartir el pedido",
+        variant: "destructive"
+      });
+    }
   };
 
   const eliminarPedido = async (id: number) => {
@@ -346,7 +375,7 @@ ${pedido.clienteNombre}
                           size="sm"
                           variant="outline"
                           onClick={() => compartirPorWhatsApp(pedido)}
-                          title="Compartir por WhatsApp"
+                          title="Compartir imagen por WhatsApp"
                         >
                           <Share className="h-4 w-4" />
                         </Button>

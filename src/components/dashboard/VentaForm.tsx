@@ -18,12 +18,13 @@ interface VentaFormProps {
 
 const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
+    fecha: new Date().toISOString().split('T')[0],
+    hora: new Date().toTimeString().slice(0, 5),
     clienteId: '',
     productoId: '',
     cantidad: '1',
-    hora: new Date().toTimeString().slice(0, 5),
-    descripcion: '',
-    precioTotal: ''
+    precioVenta: '',
+    descripcion: ''
   });
   
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -33,17 +34,6 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
   useEffect(() => {
     cargarProductos();
   }, []);
-
-  useEffect(() => {
-    // Calcular precio automáticamente cuando cambia el producto o cantidad
-    if (productoSeleccionado) {
-      const precioCalculado = productoSeleccionado.precio * parseInt(formData.cantidad);
-      setFormData(prev => ({
-        ...prev,
-        precioTotal: precioCalculado.toFixed(2)
-      }));
-    }
-  }, [productoSeleccionado, formData.cantidad]);
 
   const cargarProductos = async () => {
     try {
@@ -74,13 +64,27 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
     if (field === 'productoId') {
       const producto = productos.find(p => p.id?.toString() === value);
       setProductoSeleccionado(producto || null);
+      
+      // Sugerir el precio del producto como precio de venta
+      if (producto) {
+        setFormData(prev => ({
+          ...prev,
+          precioVenta: producto.precio.toString()
+        }));
+      }
     }
+  };
+
+  const calcularTotal = () => {
+    const cantidad = parseInt(formData.cantidad) || 0;
+    const precioVenta = parseFloat(formData.precioVenta) || 0;
+    return cantidad * precioVenta;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.clienteId || !formData.productoId || !formData.cantidad || !formData.hora || !formData.precioTotal) {
+    if (!formData.fecha || !formData.hora || !formData.clienteId || !formData.productoId || !formData.cantidad || !formData.precioVenta) {
       alert('Por favor, complete todos los campos obligatorios');
       return;
     }
@@ -96,9 +100,9 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
       return;
     }
 
-    const precioTotal = parseFloat(formData.precioTotal);
-    if (precioTotal <= 0) {
-      alert('El precio total debe ser mayor a 0');
+    const precioVenta = parseFloat(formData.precioVenta);
+    if (precioVenta <= 0) {
+      alert('El precio de venta debe ser mayor a 0');
       return;
     }
 
@@ -107,9 +111,10 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
       productoId: parseInt(formData.productoId),
       productoNombre: productoSeleccionado.nombre,
       cantidad: cantidadVenta,
-      precioUnitario: productoSeleccionado.precio,
-      precio: precioTotal,
+      precioUnitario: precioVenta,
+      precio: calcularTotal(),
       hora: formData.hora,
+      fecha: formData.fecha,
       descripcion: formData.descripcion
     };
 
@@ -130,6 +135,33 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Fecha y Hora */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="fecha">Fecha *</Label>
+              <Input
+                id="fecha"
+                name="fecha"
+                type="date"
+                value={formData.fecha}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hora">Hora *</Label>
+              <Input
+                id="hora"
+                name="hora"
+                type="time"
+                value={formData.hora}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Cliente */}
           <div className="space-y-2">
             <Label htmlFor="cliente">Cliente *</Label>
             <Select onValueChange={(value) => handleSelectChange('clienteId', value)} required>
@@ -157,6 +189,7 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
             )}
           </div>
 
+          {/* Producto */}
           <div className="space-y-2">
             <Label htmlFor="producto">Producto *</Label>
             <Select onValueChange={(value) => handleSelectChange('productoId', value)} required>
@@ -166,66 +199,72 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
               <SelectContent>
                 {productos.map((producto) => (
                   <SelectItem key={producto.id} value={producto.id?.toString() || ''}>
-                    {producto.nombre} - Stock: {producto.cantidad} - S/{producto.precio}
+                    {producto.nombre} - Stock: {producto.cantidad}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cantidad">Cantidad *</Label>
-              <Select onValueChange={(value) => handleSelectChange('cantidad', value)} value={formData.cantidad} required>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => {
-                    const disponible = !productoSeleccionado || num <= productoSeleccionado.cantidad;
-                    return (
-                      <SelectItem 
-                        key={num} 
-                        value={num.toString()}
-                        disabled={!disponible}
-                      >
-                        {num} {!disponible && '(No disponible)'}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Cantidad */}
+          <div className="space-y-2">
+            <Label htmlFor="cantidad">Cantidad *</Label>
+            <Select onValueChange={(value) => handleSelectChange('cantidad', value)} value={formData.cantidad} required>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => {
+                  const disponible = !productoSeleccionado || num <= productoSeleccionado.cantidad;
+                  return (
+                    <SelectItem 
+                      key={num} 
+                      value={num.toString()}
+                      disabled={!disponible}
+                    >
+                      {num} {!disponible && '(No disponible)'}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="hora">Hora de Venta *</Label>
-              <Input
-                id="hora"
-                name="hora"
-                type="time"
-                value={formData.hora}
-                onChange={handleChange}
-                required
-              />
-            </div>
+          {/* Precio de Venta */}
+          <div className="space-y-2">
+            <Label htmlFor="precioVenta">Precio de Venta (S/) *</Label>
+            <Input
+              id="precioVenta"
+              name="precioVenta"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.precioVenta}
+              onChange={handleChange}
+              placeholder="Ingrese el precio de venta"
+              required
+            />
+            {productoSeleccionado && (
+              <p className="text-sm text-muted-foreground">
+                Precio sugerido: S/{productoSeleccionado.precio.toFixed(2)}
+              </p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="precioTotal">Total a Pagar *</Label>
-              <Input
-                id="precioTotal"
-                name="precioTotal"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.precioTotal}
-                onChange={handleChange}
-                placeholder="S/0.00"
-                className="font-semibold"
-                required
-              />
+          {/* Total a Pagar */}
+          <div className="space-y-2">
+            <Label>Total a Pagar</Label>
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <div className="text-2xl font-bold text-primary">
+                S/{calcularTotal().toFixed(2)}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {formData.cantidad} x S/{formData.precioVenta || '0.00'}
+              </p>
             </div>
           </div>
 
+          {/* Descripción */}
           <div className="space-y-2">
             <Label htmlFor="descripcion">Descripción (Opcional)</Label>
             <Textarea

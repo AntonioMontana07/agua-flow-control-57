@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -62,9 +61,9 @@ const ReportesSection: React.FC = () => {
   const ventasFiltradas = filtrarPorFecha(ventas);
   const gastosFiltrados = filtrarPorFecha(gastos);
 
-  // Cálculos financieros solo con datos reales
+  // Cálculos financieros - usando el precio real de las ventas
   const totalCompras = comprasFiltradas.reduce((sum, compra) => sum + compra.total, 0);
-  const totalVentas = ventasFiltradas.reduce((sum, venta) => sum + (venta.cantidad * venta.precioUnitario), 0);
+  const totalVentas = ventasFiltradas.reduce((sum, venta) => sum + venta.precio, 0); // Usar venta.precio en lugar de cantidad * precioUnitario
   const totalGastos = gastosFiltrados.reduce((sum, gasto) => sum + gasto.cantidad, 0);
   const ganancia = totalVentas - totalCompras - totalGastos;
 
@@ -203,7 +202,7 @@ const ReportesSection: React.FC = () => {
                       <TableCell className="font-medium">{venta.productoNombre}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-green-600">
-                          S/{(venta.cantidad * venta.precioUnitario).toFixed(2)}
+                          S/{venta.precio.toFixed(2)}
                         </Badge>
                       </TableCell>
                     </TableRow>

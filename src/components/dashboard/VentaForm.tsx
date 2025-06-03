@@ -8,12 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X } from 'lucide-react';
 import { ProductoService } from '@/services/ProductoService';
-import { Producto } from '@/lib/database';
-
-interface Cliente {
-  id: string;
-  nombre: string;
-}
+import { Producto, Cliente } from '@/lib/database';
 
 interface VentaFormProps {
   clientes: Cliente[];
@@ -142,13 +137,24 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
                 <SelectValue placeholder="Seleccionar cliente" />
               </SelectTrigger>
               <SelectContent>
-                {clientes.map((cliente) => (
-                  <SelectItem key={cliente.id} value={cliente.id}>
-                    {cliente.nombre}
+                {clientes.length === 0 ? (
+                  <SelectItem value="no-clientes" disabled>
+                    No hay clientes registrados
                   </SelectItem>
-                ))}
+                ) : (
+                  clientes.map((cliente) => (
+                    <SelectItem key={cliente.id} value={cliente.id!.toString()}>
+                      {cliente.nombre}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            {clientes.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Primero debe registrar clientes en la sección de Clientes
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -236,7 +242,11 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
+            <Button 
+              type="submit" 
+              className="bg-primary hover:bg-primary/90"
+              disabled={clientes.length === 0}
+            >
               Registrar Venta
             </Button>
           </div>

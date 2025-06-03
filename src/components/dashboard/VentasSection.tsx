@@ -6,25 +6,23 @@ import { Plus, DollarSign, TrendingUp, Clock, User, Package } from 'lucide-react
 import VentaForm from './VentaForm';
 import { VentaService } from '@/services/VentaService';
 import { ClienteService } from '@/services/ClienteService';
-import { Venta } from '@/lib/database';
+import { Venta, Cliente } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
 
 const VentasSection: React.FC = () => {
   const [ventas, setVentas] = useState<Venta[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Clientes disponibles
-  const clientes = [
-    { id: '1', nombre: 'Juan Pérez' },
-    { id: '2', nombre: 'María González' },
-    { id: '3', nombre: 'Carlos López' }
-  ];
-
   useEffect(() => {
-    cargarVentas();
+    cargarDatos();
   }, []);
+
+  const cargarDatos = async () => {
+    await Promise.all([cargarVentas(), cargarClientes()]);
+  };
 
   const cargarVentas = async () => {
     try {
@@ -37,6 +35,20 @@ const VentasSection: React.FC = () => {
         description: "No se pudieron cargar las ventas",
         variant: "destructive"
       });
+    }
+  };
+
+  const cargarClientes = async () => {
+    try {
+      const clientesData = await ClienteService.obtenerTodos();
+      setClientes(clientesData);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los clientes",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -44,9 +56,10 @@ const VentasSection: React.FC = () => {
 
   const handleAddVenta = async (ventaData: any) => {
     try {
-      const cliente = clientes.find(c => c.id === ventaData.clienteId);
+      const cliente = clientes.find(c => c.id?.toString() === ventaData.clienteId);
       const nuevaVenta = {
         ...ventaData,
+        clienteId: parseInt(ventaData.clienteId),
         clienteNombre: cliente?.nombre || 'Cliente Desconocido',
         fecha: new Date().toISOString().split('T')[0]
       };

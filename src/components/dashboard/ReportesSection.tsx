@@ -19,33 +19,86 @@ const ReportesSection: React.FC = () => {
   const [ventas, setVentas] = useState<Venta[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingStates, setLoadingStates] = useState({
+    compras: true,
+    ventas: true,
+    gastos: true,
+    pedidos: true
+  });
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
   const cargarDatos = async () => {
-    try {
-      setLoading(true);
-      // Solo cargar datos reales, sin datos de prueba
-      const [comprasData, ventasData, gastosData, pedidosData] = await Promise.all([
-        CompraService.obtenerTodas(),
-        VentaService.obtenerTodas(),
-        GastoService.obtenerTodos(),
-        PedidoService.obtenerTodos()
-      ]);
-      
-      setCompras(comprasData);
-      setVentas(ventasData);
-      setGastos(gastosData);
-      setPedidos(pedidosData);
-      console.log('Reportes cargados - datos reales únicamente');
-    } catch (error) {
-      console.error('Error al cargar datos:', error);
-    } finally {
-      setLoading(false);
-    }
+    console.log('Iniciando carga de datos para reportes...');
+    
+    // Cargar datos en paralelo pero actualizar estados independientemente
+    const cargarCompras = async () => {
+      try {
+        console.log('Cargando compras...');
+        const comprasData = await CompraService.obtenerTodas();
+        setCompras(comprasData);
+        console.log(`Compras cargadas: ${comprasData.length} registros`);
+      } catch (error) {
+        console.error('Error al cargar compras:', error);
+        setCompras([]);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, compras: false }));
+      }
+    };
+
+    const cargarVentas = async () => {
+      try {
+        console.log('Cargando ventas...');
+        const ventasData = await VentaService.obtenerTodas();
+        setVentas(ventasData);
+        console.log(`Ventas cargadas: ${ventasData.length} registros`);
+      } catch (error) {
+        console.error('Error al cargar ventas:', error);
+        setVentas([]);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, ventas: false }));
+      }
+    };
+
+    const cargarGastos = async () => {
+      try {
+        console.log('Cargando gastos...');
+        const gastosData = await GastoService.obtenerTodos();
+        setGastos(gastosData);
+        console.log(`Gastos cargados: ${gastosData.length} registros`);
+      } catch (error) {
+        console.error('Error al cargar gastos:', error);
+        setGastos([]);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, gastos: false }));
+      }
+    };
+
+    const cargarPedidos = async () => {
+      try {
+        console.log('Cargando pedidos...');
+        const pedidosData = await PedidoService.obtenerTodos();
+        setPedidos(pedidosData);
+        console.log(`Pedidos cargados: ${pedidosData.length} registros`);
+      } catch (error) {
+        console.error('Error al cargar pedidos:', error);
+        setPedidos([]);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, pedidos: false }));
+      }
+    };
+
+    // Ejecutar todas las cargas en paralelo
+    await Promise.all([
+      cargarCompras(),
+      cargarVentas(),
+      cargarGastos(),
+      cargarPedidos()
+    ]);
+
+    console.log('Carga de datos completada');
   };
 
   const filtrarPorFecha = <T extends { fecha: string }>(datos: T[]): T[] => {
@@ -121,26 +174,17 @@ const ReportesSection: React.FC = () => {
   const clienteMasPedidos = obtenerClienteMasPedidos();
   const clienteMasCompras = obtenerClienteMasCompras();
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-primary">Reportes</h2>
-            <p className="text-muted-foreground">Análisis de compras, ventas y gastos</p>
-          </div>
-        </div>
-        <div className="text-center">Cargando...</div>
-      </div>
-    );
-  }
+  const isLoadingAny = Object.values(loadingStates).some(loading => loading);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-primary">Reportes</h2>
-          <p className="text-muted-foreground">Análisis de compras, ventas y gastos</p>
+          <p className="text-muted-foreground">
+            Análisis de compras, ventas y gastos
+            {isLoadingAny && <span className="ml-2 text-blue-600">• Cargando datos...</span>}
+          </p>
         </div>
       </div>
 
@@ -181,7 +225,11 @@ const ReportesSection: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">S/{totalVentas.toFixed(2)}</div>
+            {loadingStates.ventas ? (
+              <div className="text-2xl font-bold text-muted-foreground">Cargando...</div>
+            ) : (
+              <div className="text-2xl font-bold text-green-600">S/{totalVentas.toFixed(2)}</div>
+            )}
             <p className="text-xs text-muted-foreground">{ventasFiltradas.length} transacciones</p>
           </CardContent>
         </Card>
@@ -192,7 +240,11 @@ const ReportesSection: React.FC = () => {
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">S/{totalCompras.toFixed(2)}</div>
+            {loadingStates.compras ? (
+              <div className="text-2xl font-bold text-muted-foreground">Cargando...</div>
+            ) : (
+              <div className="text-2xl font-bold text-red-600">S/{totalCompras.toFixed(2)}</div>
+            )}
             <p className="text-xs text-muted-foreground">{comprasFiltradas.length} transacciones</p>
           </CardContent>
         </Card>
@@ -203,7 +255,11 @@ const ReportesSection: React.FC = () => {
             <Package className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">S/{totalGastos.toFixed(2)}</div>
+            {loadingStates.gastos ? (
+              <div className="text-2xl font-bold text-muted-foreground">Cargando...</div>
+            ) : (
+              <div className="text-2xl font-bold text-orange-600">S/{totalGastos.toFixed(2)}</div>
+            )}
             <p className="text-xs text-muted-foreground">{gastosFiltrados.length} transacciones</p>
           </CardContent>
         </Card>
@@ -214,9 +270,13 @@ const ReportesSection: React.FC = () => {
             <DollarSign className={`h-4 w-4 ${ganancia >= 0 ? 'text-green-600' : 'text-red-600'}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${ganancia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              S/{ganancia.toFixed(2)}
-            </div>
+            {isLoadingAny ? (
+              <div className="text-2xl font-bold text-muted-foreground">Calculando...</div>
+            ) : (
+              <div className={`text-2xl font-bold ${ganancia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                S/{ganancia.toFixed(2)}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               {ganancia >= 0 ? 'Beneficio' : 'Pérdida'}
             </p>
@@ -232,7 +292,9 @@ const ReportesSection: React.FC = () => {
             <Target className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            {clienteMasPedidos ? (
+            {loadingStates.pedidos ? (
+              <div className="text-muted-foreground">Cargando datos...</div>
+            ) : clienteMasPedidos ? (
               <div>
                 <div className="text-lg font-bold text-blue-600">{clienteMasPedidos.nombre}</div>
                 <p className="text-sm text-muted-foreground">{clienteMasPedidos.pedidos} pedidos</p>
@@ -250,7 +312,9 @@ const ReportesSection: React.FC = () => {
             <Crown className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            {clienteMasCompras ? (
+            {loadingStates.ventas ? (
+              <div className="text-muted-foreground">Cargando datos...</div>
+            ) : clienteMasCompras ? (
               <div>
                 <div className="text-lg font-bold text-purple-600">{clienteMasCompras.nombre}</div>
                 <p className="text-sm text-muted-foreground">{clienteMasCompras.compras} compras</p>
@@ -270,10 +334,15 @@ const ReportesSection: React.FC = () => {
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-green-600" />
               Ventas ({ventasFiltradas.length})
+              {loadingStates.ventas && <span className="text-sm text-blue-600">• Cargando...</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {ventasFiltradas.length === 0 ? (
+            {loadingStates.ventas ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground">Cargando ventas...</div>
+              </div>
+            ) : ventasFiltradas.length === 0 ? (
               <div className="text-center py-8">
                 <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No hay ventas registradas</p>
@@ -311,10 +380,15 @@ const ReportesSection: React.FC = () => {
             <CardTitle className="flex items-center gap-2">
               <TrendingDown className="h-5 w-5 text-red-600" />
               Compras ({comprasFiltradas.length})
+              {loadingStates.compras && <span className="text-sm text-blue-600">• Cargando...</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {comprasFiltradas.length === 0 ? (
+            {loadingStates.compras ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground">Cargando compras...</div>
+              </div>
+            ) : comprasFiltradas.length === 0 ? (
               <div className="text-center py-8">
                 <TrendingDown className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No hay compras registradas</p>
@@ -352,10 +426,15 @@ const ReportesSection: React.FC = () => {
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-orange-600" />
               Gastos ({gastosFiltrados.length})
+              {loadingStates.gastos && <span className="text-sm text-blue-600">• Cargando...</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {gastosFiltrados.length === 0 ? (
+            {loadingStates.gastos ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground">Cargando gastos...</div>
+              </div>
+            ) : gastosFiltrados.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No hay gastos registrados</p>

@@ -173,7 +173,6 @@ const InventarioSection: React.FC = () => {
                 <tr className="border-b">
                   <th className="text-left p-4">Producto</th>
                   <th className="text-left p-4">Cantidad</th>
-                  <th className="text-left p-4">Precio</th>
                   <th className="text-left p-4">Estado</th>
                   <th className="text-left p-4">Acciones</th>
                 </tr>
@@ -197,7 +196,6 @@ const InventarioSection: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="p-4">S/{producto.precio.toFixed(2)}</td>
                     <td className="p-4">
                       <Badge className={getEstadoColor(producto.estado)}>
                         {producto.estado}

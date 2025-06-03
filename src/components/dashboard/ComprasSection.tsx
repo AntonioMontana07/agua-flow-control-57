@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Package, Calendar, DollarSign, Edit, Trash2 } from 'lucide-react';
+import { Plus, Package, Calendar, DollarSign, Edit, Trash2, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import CompraForm from './CompraForm';
+import CompraDetalle from './CompraDetalle';
 import { CompraService } from '@/services/CompraService';
 import { Compra } from '@/lib/database';
 
@@ -12,6 +12,8 @@ const ComprasSection: React.FC = () => {
   const [compras, setCompras] = useState<Compra[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingCompra, setEditingCompra] = useState<Compra | null>(null);
+  const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
+  const [showDetalle, setShowDetalle] = useState(false);
 
   useEffect(() => {
     cargarCompras();
@@ -65,6 +67,16 @@ const ComprasSection: React.FC = () => {
         alert('Error al eliminar la compra');
       }
     }
+  };
+
+  const handleViewDetalle = (compra: Compra) => {
+    setSelectedCompra(compra);
+    setShowDetalle(true);
+  };
+
+  const handleCloseDetalle = () => {
+    setSelectedCompra(null);
+    setShowDetalle(false);
   };
 
   const handleCancelForm = () => {
@@ -174,6 +186,14 @@ const ComprasSection: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleViewDetalle(compra)}
+                        title="Ver detalles"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEditCompra(compra)}
                       >
                         <Edit className="h-4 w-4" />
@@ -194,6 +214,13 @@ const ComprasSection: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Modal de detalles */}
+      <CompraDetalle 
+        compra={selectedCompra}
+        isOpen={showDetalle}
+        onClose={handleCloseDetalle}
+      />
     </div>
   );
 };

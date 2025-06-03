@@ -1,6 +1,4 @@
 
-import { PushNotifications } from '@capacitor/push-notifications';
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
 export class NotificationService {
@@ -11,6 +9,10 @@ export class NotificationService {
     }
 
     try {
+      // Importación dinámica para evitar errores en web
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      
       // Solicitar permisos para notificaciones locales
       await LocalNotifications.requestPermissions();
       
@@ -35,7 +37,11 @@ export class NotificationService {
   }
 
   static async enviarNotificacionStock(producto: string, cantidad: number, minimo: number) {
+    if (!Capacitor.isNativePlatform()) return;
+
     try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -61,7 +67,11 @@ export class NotificationService {
   }
 
   static async enviarNotificacionPedido(cliente: string, producto: string, total: number) {
+    if (!Capacitor.isNativePlatform()) return;
+
     try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -88,9 +98,11 @@ export class NotificationService {
   }
 
   static async enviarNotificacionStockCritico(productos: Array<{nombre: string, cantidad: number, minimo: number}>) {
-    if (productos.length === 0) return;
+    if (!Capacitor.isNativePlatform() || productos.length === 0) return;
     
     try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
       const productosTexto = productos.map(p => `${p.nombre}: ${p.cantidad}`).join(', ');
       
       await LocalNotifications.schedule({

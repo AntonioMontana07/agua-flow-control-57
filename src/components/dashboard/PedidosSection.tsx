@@ -1,18 +1,20 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Package, Calendar, Clock, Download } from 'lucide-react';
+import { Trash2, Package, Calendar, Clock, Eye } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { PedidoService, Pedido } from '@/services/PedidoService';
 import PedidoForm from './PedidoForm';
+import PedidoDetalle from './PedidoDetalle';
 
 const PedidosSection: React.FC = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
+  const [showDetalle, setShowDetalle] = useState(false);
 
   useEffect(() => {
     cargarPedidos();
@@ -35,140 +37,6 @@ const PedidosSection: React.FC = () => {
     }
   };
 
-  const generarImagenPedido = async (pedido: Pedido) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    // Configurar canvas con colores BIOX
-    canvas.width = 600;
-    canvas.height = 800;
-
-    // Fondo con gradiente BIOX
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#f3f1ff'); // biox-50
-    gradient.addColorStop(1, '#ebe5ff'); // biox-100
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Marco decorativo con colores BIOX
-    ctx.strokeStyle = '#843dff'; // biox-500
-    ctx.lineWidth = 4;
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-
-    // Configurar texto centrado
-    ctx.textAlign = 'center';
-
-    // Logo/Título BIOX con colores oficiales
-    ctx.font = 'bold 36px Arial';
-    ctx.fillStyle = '#843dff'; // biox-500
-    ctx.fillText('🌟 BIOX 🌟', 300, 70);
-
-    // Subtítulo
-    ctx.font = 'bold 24px Arial';
-    ctx.fillStyle = '#6b21a8'; // biox-700
-    ctx.fillText('SISTEMA DE REPARTO', 300, 110);
-
-    // Línea separadora con color BIOX
-    ctx.strokeStyle = '#9f75ff'; // biox-400
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(80, 140);
-    ctx.lineTo(520, 140);
-    ctx.stroke();
-
-    // Información del cliente centrada
-    ctx.font = 'bold 22px Arial';
-    ctx.fillStyle = '#581c87'; // biox-800
-    ctx.fillText('👤 CLIENTE', 300, 180);
-    
-    ctx.font = '20px Arial';
-    ctx.fillStyle = '#4c1d95'; // biox-900
-    ctx.fillText(pedido.clienteNombre, 300, 210);
-    ctx.fillText(`📍 ${pedido.clienteDireccion}`, 300, 240);
-
-    // Línea separadora
-    ctx.strokeStyle = '#9f75ff';
-    ctx.beginPath();
-    ctx.moveTo(80, 270);
-    ctx.lineTo(520, 270);
-    ctx.stroke();
-
-    // Detalles del pedido centrados
-    ctx.font = 'bold 22px Arial';
-    ctx.fillStyle = '#581c87';
-    ctx.fillText('📦 DETALLES DEL PEDIDO', 300, 310);
-
-    ctx.font = '18px Arial';
-    ctx.fillStyle = '#4c1d95';
-    ctx.fillText(`🏷️ Producto: ${pedido.productoNombre}`, 300, 340);
-    ctx.fillText(`📊 Cantidad: ${pedido.cantidad} unidades`, 300, 370);
-    ctx.fillText(`💰 Precio unitario: S/${pedido.precio.toFixed(2)}`, 300, 400);
-    
-    ctx.font = 'bold 24px Arial';
-    ctx.fillStyle = '#843dff'; // biox-500
-    ctx.fillText(`💵 TOTAL: S/${pedido.total.toFixed(2)}`, 300, 440);
-
-    // Línea separadora
-    ctx.strokeStyle = '#9f75ff';
-    ctx.beginPath();
-    ctx.moveTo(80, 470);
-    ctx.lineTo(520, 470);
-    ctx.stroke();
-
-    // Programación de entrega centrada
-    ctx.font = 'bold 22px Arial';
-    ctx.fillStyle = '#581c87';
-    ctx.fillText('📅 PROGRAMACIÓN DE ENTREGA', 300, 510);
-
-    ctx.font = '18px Arial';
-    ctx.fillStyle = '#4c1d95';
-    const fechaEntrega = new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-    ctx.fillText(`🗓️ Fecha: ${fechaEntrega}`, 300, 540);
-    ctx.fillText(`🕐 Hora: ${pedido.horaEntrega}`, 300, 570);
-
-    // Línea separadora
-    ctx.strokeStyle = '#9f75ff';
-    ctx.beginPath();
-    ctx.moveTo(80, 600);
-    ctx.lineTo(520, 600);
-    ctx.stroke();
-
-    // Información de registro centrada
-    ctx.font = '16px Arial';
-    ctx.fillStyle = '#6b21a8'; // biox-700
-    const fechaRegistro = new Date(pedido.fecha).toLocaleDateString('es-ES');
-    ctx.fillText(`📋 Pedido registrado el ${fechaRegistro} a las ${pedido.hora}`, 300, 640);
-
-    // Footer con branding BIOX centrado
-    ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#843dff'; // biox-500
-    ctx.fillText('✨ BIOX - Gestión eficiente de pedidos ✨', 300, 700);
-
-    // Marco interno decorativo
-    ctx.strokeStyle = '#bea6ff'; // biox-300
-    ctx.lineWidth = 2;
-    ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
-
-    // Descargar imagen
-    const link = document.createElement('a');
-    link.download = `pedido-${pedido.id}-${pedido.clienteNombre.replace(/\s+/g, '-')}.png`;
-    link.href = canvas.toDataURL();
-    link.click();
-
-    toast({
-      title: "Imagen generada",
-      description: "La imagen del pedido se ha descargado correctamente"
-    });
-  };
-
   const eliminarPedido = async (id: number) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este pedido?')) {
       try {
@@ -189,6 +57,16 @@ const PedidosSection: React.FC = () => {
     }
   };
 
+  const handleViewDetalle = (pedido: Pedido) => {
+    setSelectedPedido(pedido);
+    setShowDetalle(true);
+  };
+
+  const handleCloseDetalle = () => {
+    setSelectedPedido(null);
+    setShowDetalle(false);
+  };
+
   const totalPedidos = pedidos.reduce((sum, pedido) => sum + pedido.total, 0);
 
   if (loading) {
@@ -207,8 +85,6 @@ const PedidosSection: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-      
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-primary">Pedidos BIOX</h2>
@@ -314,10 +190,10 @@ const PedidosSection: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => generarImagenPedido(pedido)}
-                          title="Descargar como imagen"
+                          onClick={() => handleViewDetalle(pedido)}
+                          title="Ver detalles"
                         >
-                          <Download className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
@@ -336,6 +212,13 @@ const PedidosSection: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de detalles */}
+      <PedidoDetalle 
+        pedido={selectedPedido}
+        isOpen={showDetalle}
+        onClose={handleCloseDetalle}
+      />
     </div>
   );
 };

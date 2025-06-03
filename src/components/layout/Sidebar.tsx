@@ -12,6 +12,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { 
   Home, 
@@ -35,6 +36,7 @@ interface SidebarProps {
 const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) => {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { isMobile, setOpenMobile } = useSidebar();
 
   const menuItems = [
     { id: 'resumen', label: 'Resumen', icon: Home },
@@ -46,6 +48,30 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
     { id: 'clientes', label: 'Clientes', icon: Users },
     { id: 'reportes', label: 'Reportes', icon: BarChart3 },
   ];
+
+  const handleSectionChange = (section: string) => {
+    onSectionChange(section);
+    // Cerrar el sidebar en móviles después de seleccionar una opción
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  const handleThemeToggle = () => {
+    toggleTheme();
+    // Cerrar el sidebar en móviles después de cambiar tema
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    // Cerrar el sidebar en móviles después de logout
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <Sidebar>
@@ -72,7 +98,7 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     isActive={activeSection === item.id}
-                    onClick={() => onSectionChange(item.id)}
+                    onClick={() => handleSectionChange(item.id)}
                     className="w-full justify-start"
                   >
                     <Icon className="h-4 w-4" />
@@ -88,7 +114,7 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={toggleTheme} className="w-full justify-start">
+            <SidebarMenuButton onClick={handleThemeToggle} className="w-full justify-start">
               {isDark ? (
                 <>
                   <Sun className="h-4 w-4" />
@@ -104,7 +130,7 @@ const AppSidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) 
           </SidebarMenuItem>
           
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} className="w-full justify-start text-destructive hover:text-destructive">
+            <SidebarMenuButton onClick={handleLogout} className="w-full justify-start text-destructive hover:text-destructive">
               <LogOut className="h-4 w-4" />
               <span>Cerrar Sesión</span>
             </SidebarMenuButton>

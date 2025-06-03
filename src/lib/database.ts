@@ -1,4 +1,3 @@
-
 // Configuración de IndexedDB para la aplicación
 export interface Producto {
   id?: number;
@@ -71,6 +70,7 @@ export interface Pedido {
   fechaEntrega: string;
   horaEntrega: string;
   fechaCreacion: string;
+  estado: 'Pendiente' | 'En Camino' | 'Entregado';
 }
 
 class DatabaseManager {

@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Package, Calendar, Clock, Eye } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { PedidoService, Pedido } from '@/services/PedidoService';
@@ -37,6 +38,24 @@ const PedidosSection: React.FC = () => {
     }
   };
 
+  const cambiarEstadoPedido = async (pedidoId: number, nuevoEstado: 'Pendiente' | 'En Camino' | 'Entregado') => {
+    try {
+      await PedidoService.actualizarEstado(pedidoId, nuevoEstado);
+      toast({
+        title: "Estado actualizado",
+        description: `Pedido marcado como ${nuevoEstado}`,
+      });
+      cargarPedidos();
+    } catch (error) {
+      console.error('Error al cambiar estado:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del pedido",
+        variant: "destructive"
+      });
+    }
+  };
+
   const eliminarPedido = async (id: number) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este pedido?')) {
       try {
@@ -67,7 +86,23 @@ const PedidosSection: React.FC = () => {
     setShowDetalle(false);
   };
 
+  const getEstadoBadgeVariant = (estado: string) => {
+    switch (estado) {
+      case 'Pendiente':
+        return 'destructive';
+      case 'En Camino':
+        return 'default';
+      case 'Entregado':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
   const totalPedidos = pedidos.reduce((sum, pedido) => sum + pedido.total, 0);
+  const pendientes = pedidos.filter(p => p.estado === 'Pendiente').length;
+  const enCamino = pedidos.filter(p => p.estado === 'En Camino').length;
+  const entregados = pedidos.filter(p => p.estado === 'Entregado').length;
 
   if (loading) {
     return (
@@ -94,39 +129,48 @@ const PedidosSection: React.FC = () => {
       </div>
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pedidos</CardTitle>
-            <Package className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+            <Package className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{pedidos.length}</div>
-            <p className="text-xs text-muted-foreground">Pedidos registrados</p>
+            <div className="text-2xl font-bold text-red-600">{pendientes}</div>
+            <p className="text-xs text-muted-foreground">Pedidos por procesar</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En Camino</CardTitle>
+            <Package className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{enCamino}</div>
+            <p className="text-xs text-muted-foreground">Pedidos en ruta</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Entregados</CardTitle>
+            <Package className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{entregados}</div>
+            <p className="text-xs text-muted-foreground">Pedidos completados</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-            <Package className="h-4 w-4 text-green-600" />
+            <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">S/{totalPedidos.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-primary">S/{totalPedidos.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Valor de todos los pedidos</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pedidos Hoy</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {pedidos.filter(p => p.fecha === new Date().toISOString().split('T')[0]).length}
-            </div>
-            <p className="text-xs text-muted-foreground">Pedidos de hoy</p>
           </CardContent>
         </Card>
       </div>
@@ -151,6 +195,7 @@ const PedidosSection: React.FC = () => {
                   <TableHead>Cantidad</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Entrega</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -184,6 +229,33 @@ const PedidosSection: React.FC = () => {
                         <Clock className="h-3 w-3" />
                         <span>{pedido.horaEntrega}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={pedido.estado}
+                        onValueChange={(value: 'Pendiente' | 'En Camino' | 'Entregado') => 
+                          cambiarEstadoPedido(pedido.id!, value)
+                        }
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue>
+                            <Badge variant={getEstadoBadgeVariant(pedido.estado)}>
+                              {pedido.estado}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Pendiente">
+                            <Badge variant="destructive">Pendiente</Badge>
+                          </SelectItem>
+                          <SelectItem value="En Camino">
+                            <Badge variant="default">En Camino</Badge>
+                          </SelectItem>
+                          <SelectItem value="Entregado">
+                            <Badge variant="secondary">Entregado</Badge>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">

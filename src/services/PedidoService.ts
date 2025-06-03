@@ -16,38 +16,59 @@ export interface Pedido {
   fechaEntrega: string;
   horaEntrega: string;
   fechaCreacion: string;
+  estado: 'Pendiente' | 'En Camino' | 'Entregado';
 }
 
 export class PedidoService {
-  static async crear(pedido: Omit<Pedido, 'id' | 'total' | 'fechaCreacion'>): Promise<number> {
+  static async crear(pedido: Omit<Pedido, 'id' | 'total' | 'fechaCreacion' | 'estado'>): Promise<number> {
     const nuevoPedido: Pedido = {
       ...pedido,
       total: pedido.cantidad * pedido.precio,
-      fechaCreacion: new Date().toISOString()
+      fechaCreacion: new Date().toISOString(),
+      estado: 'Pendiente'
     };
     
-    // Solo guardar el pedido, sin afectar inventario ni otros módulos
-    console.log('Creando pedido independiente:', nuevoPedido);
+    console.log('Creando pedido con estado Pendiente:', nuevoPedido);
     return await dbManager.add('pedidos', nuevoPedido);
   }
 
   static async obtenerTodos(): Promise<Pedido[]> {
-    return await dbManager.getAll<Pedido>('pedidos');
+    const pedidos = await dbManager.getAll<Pedido>('pedidos');
+    // Asignar estado por defecto a pedidos existentes que no lo tengan
+    return pedidos.map(pedido => ({
+      ...pedido,
+      estado: pedido.estado || 'Pendiente'
+    }));
   }
 
   static async obtenerPorId(id: number): Promise<Pedido | undefined> {
-    return await dbManager.getById<Pedido>('pedidos', id);
+    const pedido = await dbManager.getById<Pedido>('pedidos', id);
+    if (pedido) {
+      return {
+        ...pedido,
+        estado: pedido.estado || 'Pendiente'
+      };
+    }
+    return pedido;
   }
 
   static async actualizar(pedido: Pedido): Promise<void> {
-    // Solo actualizar el pedido, recalcular total
     pedido.total = pedido.cantidad * pedido.precio;
-    console.log('Actualizando pedido independiente:', pedido);
+    console.log('Actualizando pedido:', pedido);
     await dbManager.update('pedidos', pedido);
   }
 
+  static async actualizarEstado(id: number, nuevoEstado: 'Pendiente' | 'En Camino' | 'Entregado'): Promise<void> {
+    const pedido = await this.obtenerPorId(id);
+    if (pedido) {
+      pedido.estado = nuevoEstado;
+      await this.actualizar(pedido);
+      console.log(`Estado del pedido ${id} actualizado a: ${nuevoEstado}`);
+    }
+  }
+
   static async eliminar(id: number): Promise<void> {
-    console.log('Eliminando pedido independiente:', id);
+    console.log('Eliminando pedido:', id);
     await dbManager.delete('pedidos', id);
   }
 

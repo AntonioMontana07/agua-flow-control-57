@@ -17,8 +17,6 @@ interface ProductFormProps {
 const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     nombre: '',
-    cantidad: '',
-    precio: '',
     minimo: '',
     descripcion: ''
   });
@@ -27,8 +25,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel 
     if (producto) {
       setFormData({
         nombre: producto.nombre,
-        cantidad: producto.cantidad.toString(),
-        precio: producto.precio.toString(),
         minimo: producto.minimo.toString(),
         descripcion: producto.descripcion || ''
       });
@@ -46,15 +42,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nombre || !formData.cantidad || !formData.precio || !formData.minimo) {
+    if (!formData.nombre || !formData.minimo) {
       alert('Por favor, complete todos los campos obligatorios');
       return;
     }
 
     const product = {
       nombre: formData.nombre,
-      cantidad: parseInt(formData.cantidad),
-      precio: parseFloat(formData.precio),
+      cantidad: producto ? producto.cantidad : 0, // Si es edición mantener cantidad, si es nuevo empezar en 0
+      precio: producto ? producto.precio : 0, // Si es edición mantener precio, si es nuevo empezar en 0
       minimo: parseInt(formData.minimo),
       descripcion: formData.descripcion
     };
@@ -72,7 +68,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel 
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="nombre">Nombre del Producto *</Label>
               <Input
@@ -81,35 +77,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel 
                 value={formData.nombre}
                 onChange={handleChange}
                 placeholder="Ej: Bidón 20L, Garrafón 19L"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cantidad">Cantidad Inicial *</Label>
-              <Input
-                id="cantidad"
-                name="cantidad"
-                type="number"
-                value={formData.cantidad}
-                onChange={handleChange}
-                placeholder="Cantidad en stock"
-                min="0"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="precio">Precio Unitario (S/) *</Label>
-              <Input
-                id="precio"
-                name="precio"
-                type="number"
-                step="0.01"
-                value={formData.precio}
-                onChange={handleChange}
-                placeholder="0.00"
-                min="0"
                 required
               />
             </div>
@@ -127,18 +94,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ producto, onSubmit, onCancel 
                 required
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="descripcion">Descripción (Opcional)</Label>
-            <Textarea
-              id="descripcion"
-              name="descripcion"
-              value={formData.descripcion}
-              onChange={handleChange}
-              placeholder="Descripción adicional del producto..."
-              rows={3}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción (Opcional)</Label>
+              <Textarea
+                id="descripcion"
+                name="descripcion"
+                value={formData.descripcion}
+                onChange={handleChange}
+                placeholder="Descripción adicional del producto..."
+                rows={3}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

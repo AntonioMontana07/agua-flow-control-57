@@ -363,6 +363,27 @@ const ReportesSection: React.FC = () => {
                   Los gastos aparecerán aquí cuando los registres
                 </p>
               </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Cantidad</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gastosFiltrados.slice(0, 5).map((gasto) => (
+                    <TableRow key={gasto.id}>
+                      <TableCell className="font-medium">{gasto.descripcion}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-orange-600">
+                          S/{gasto.cantidad.toFixed(2)}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>

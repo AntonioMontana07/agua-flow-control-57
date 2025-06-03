@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -13,11 +12,13 @@ import ClientesSection from '@/components/dashboard/ClientesSection';
 import ReportesSection from '@/components/dashboard/ReportesSection';
 import InventoryAlerts from '@/components/dashboard/InventoryAlerts';
 import { useDatabase } from '@/hooks/useDatabase';
+import { useNotifications } from '@/hooks/useNotifications';
 import { ProductoService } from '@/services/ProductoService';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { isInitialized, error } = useDatabase();
+  useNotifications(); // Inicializar notificaciones
   const [activeSection, setActiveSection] = useState('resumen');
   const [alertsDismissed, setAlertsDismissed] = useState(false);
   const [productos, setProductos] = useState<any[]>([]);
@@ -83,7 +84,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Solo mostrar alertas si hay productos y hay algunos críticos o bajos
   const productosProblematicos = productos.filter(p => p.estado === 'Crítico' || p.estado === 'Bajo');
   const mostrarAlertas = productos.length > 0 && productosProblematicos.length > 0 && !alertsDismissed;
 
@@ -97,13 +97,11 @@ const Dashboard: React.FC = () => {
         
         <main className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6 lg:p-8">
-            {/* Header con botón de menú para móvil */}
             <div className="flex items-center gap-4 mb-4 md:hidden">
               <SidebarTrigger />
               <h1 className="text-lg font-semibold">Dashboard</h1>
             </div>
             
-            {/* Mostrar alertas de inventario solo si hay productos con problemas */}
             {mostrarAlertas && (
               <InventoryAlerts 
                 productos={productos}

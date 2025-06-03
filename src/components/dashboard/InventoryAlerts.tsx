@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface Producto {
   id: number;
@@ -18,8 +19,22 @@ interface InventoryAlertsProps {
 }
 
 const InventoryAlerts: React.FC<InventoryAlertsProps> = ({ productos, onDismiss }) => {
+  const { notificarStockCritico } = useNotifications();
+  
   const productosCriticos = productos.filter(p => p.estado === 'Crítico');
   const productosBajos = productos.filter(p => p.estado === 'Bajo');
+
+  // Enviar notificación cuando hay productos críticos
+  useEffect(() => {
+    if (productosCriticos.length > 0) {
+      const productosParaNotificacion = productosCriticos.map(p => ({
+        nombre: p.nombre,
+        cantidad: p.cantidad,
+        minimo: p.minimo
+      }));
+      notificarStockCritico(productosParaNotificacion);
+    }
+  }, [productosCriticos.length, notificarStockCritico]);
 
   if (productosCriticos.length === 0 && productosBajos.length === 0) {
     return null;

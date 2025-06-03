@@ -1,5 +1,6 @@
-
 import { dbManager } from '@/lib/database';
+import { NotificationService } from './NotificationService';
+import { Capacitor } from '@capacitor/core';
 
 export interface Pedido {
   id?: number;
@@ -29,12 +30,22 @@ export class PedidoService {
     };
     
     console.log('Creando pedido con estado Pendiente:', nuevoPedido);
-    return await dbManager.add('pedidos', nuevoPedido);
+    const id = await dbManager.add('pedidos', nuevoPedido);
+    
+    // Enviar notificación de nuevo pedido
+    if (Capacitor.isNativePlatform()) {
+      await NotificationService.enviarNotificacionPedido(
+        nuevoPedido.clienteNombre,
+        nuevoPedido.productoNombre,
+        nuevoPedido.total
+      );
+    }
+    
+    return id;
   }
 
   static async obtenerTodos(): Promise<Pedido[]> {
     const pedidos = await dbManager.getAll<Pedido>('pedidos');
-    // Asignar estado por defecto a pedidos existentes que no lo tengan
     return pedidos.map(pedido => ({
       ...pedido,
       estado: pedido.estado || 'Pendiente'
@@ -79,7 +90,6 @@ export class PedidoService {
     }
   }
 
-  // Métodos auxiliares para consulta de datos (solo lectura)
   static async consultarClientesDisponibles() {
     try {
       const clientes = await dbManager.getAll('clientes');

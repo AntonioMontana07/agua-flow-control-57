@@ -209,30 +209,27 @@ const VentaForm: React.FC<VentaFormProps> = ({ clientes, onSubmit, onCancel }) =
           {/* Cantidad */}
           <div className="space-y-2">
             <Label htmlFor="cantidad">Cantidad *</Label>
-            <Select onValueChange={(value) => handleSelectChange('cantidad', value)} value={formData.cantidad} required>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => {
-                  const disponible = !productoSeleccionado || num <= productoSeleccionado.cantidad;
-                  return (
-                    <SelectItem 
-                      key={num} 
-                      value={num.toString()}
-                      disabled={!disponible}
-                    >
-                      {num} {!disponible && '(No disponible)'}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+            <Input
+              id="cantidad"
+              name="cantidad"
+              type="number"
+              min="1"
+              max={productoSeleccionado ? productoSeleccionado.cantidad : undefined}
+              value={formData.cantidad}
+              onChange={handleChange}
+              placeholder="Ingrese la cantidad"
+              required
+            />
+            {productoSeleccionado && (
+              <p className="text-sm text-muted-foreground">
+                Stock disponible: {productoSeleccionado.cantidad}
+              </p>
+            )}
           </div>
 
           {/* Precio de Venta */}
           <div className="space-y-2">
-            <Label htmlFor="precioVenta">Precio de Venta (S/) *</Label>
+            <Label htmlFor="precioVenta">Precio de Venta por Unidad (S/) *</Label>
             <Input
               id="precioVenta"
               name="precioVenta"

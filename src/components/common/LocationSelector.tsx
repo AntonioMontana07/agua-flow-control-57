@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const [mapReady, setMapReady] = useState(false);
+  const [mapContainerId, setMapContainerId] = useState('');
   const { toast } = useToast();
   
   const mapRef = useRef<any>(null);
@@ -55,6 +57,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     east: -71.2,
     west: -71.8
   };
+
+  // Generar nuevo ID único cada vez que se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      const newId = `map-container-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setMapContainerId(newId);
+      console.log('🆔 Nuevo ID de mapa generado:', newId);
+    }
+  }, [isOpen]);
 
   // Cargar Leaflet
   const loadLeaflet = async () => {
@@ -99,13 +110,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   // Inicializar mapa
   const initializeMap = async () => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (!mapContainerRef.current || mapRef.current || !mapContainerId) return;
     
     const L = await loadLeaflet();
     if (!L) return;
     
     try {
-      console.log('🗺️ Inicializando mapa...');
+      console.log('🗺️ Inicializando mapa con ID:', mapContainerId);
+      
+      // Asegurar que el contenedor tiene el ID correcto
+      mapContainerRef.current.id = mapContainerId;
       
       mapRef.current = L.map(mapContainerRef.current, {
         center: AREQUIPA_CENTER,
@@ -123,6 +137,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const { lat, lng } = e.latlng;
         
         if (isLocationInArequipa(lat, lng)) {
+          console.log('📍 Ubicación seleccionada:', { lat, lng });
+          
           if (markerRef.current) {
             markerRef.current.setLatLng([lat, lng]);
           } else {
@@ -140,7 +156,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       });
 
       setMapReady(true);
-      console.log('✅ Mapa inicializado');
+      console.log('✅ Mapa inicializado correctamente');
       
       if (currentValue && !selectedLocation) {
         setTimeout(() => geocodeCurrentAddress(), 500);
@@ -163,17 +179,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
     
     setMapReady(false);
+    setMapContainerId('');
     console.log('🧹 Mapa limpiado');
   };
 
-  // Effect para inicializar cuando se abre
+  // Effect para inicializar cuando se abre y hay ID
   useEffect(() => {
-    if (isOpen && !mapReady) {
-      // Pequeño delay para asegurar que el DOM esté listo
-      const timer = setTimeout(initializeMap, 100);
+    if (isOpen && mapContainerId && !mapReady) {
+      const timer = setTimeout(initializeMap, 200);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, mapContainerId]);
 
   // Effect para limpiar cuando se cierra
   useEffect(() => {
@@ -246,6 +262,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
+      console.log('🔍 Obteniendo dirección exacta para:', { lat, lng });
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`
       );
@@ -255,28 +272,43 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       if (data.address) {
         const parts = [];
+        
+        // Construir dirección más precisa
         if (data.address.house_number && data.address.road) {
           parts.push(`${data.address.road} ${data.address.house_number}`);
         } else if (data.address.road) {
           parts.push(data.address.road);
         }
         
-        if (data.address.neighbourhood) {
-          parts.push(data.address.neighbourhood);
+        if (data.address.neighbourhood || data.address.suburb) {
+          parts.push(data.address.neighbourhood || data.address.suburb);
         }
         
+        if (data.address.city_district || data.address.district) {
+          parts.push(data.address.city_district || data.address.district);
+        }
+        
+        // Asegurar que incluya Arequipa
         if (!parts.some(part => part.toLowerCase().includes('arequipa'))) {
           parts.push('Arequipa');
         }
         
         address = parts.join(', ');
+        
+        // Si no se pudo construir una dirección, usar coordenadas con más precisión
+        if (!address || address === 'Arequipa') {
+          address = `Ubicación exacta: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
+        }
       } else {
-        address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        address = `Ubicación exacta: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
       }
 
+      console.log('📍 Dirección exacta obtenida:', address);
       setSelectedLocation({ lat, lng, address });
     } catch (error) {
-      setSelectedLocation({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
+      console.error('Error en geocodificación inversa:', error);
+      const exactAddress = `Ubicación exacta: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
+      setSelectedLocation({ lat, lng, address: exactAddress });
     }
   };
 
@@ -287,7 +319,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     try {
       const query = `${searchQuery}, Arequipa, Perú`;
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=pe`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=pe&addressdetails=1`
       );
       
       const data = await response.json();
@@ -313,13 +345,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
     
-    setSelectedLocation({ lat, lng, address: result.display_name });
+    console.log('🎯 Resultado de búsqueda seleccionado:', { lat, lng });
+    
+    // Obtener dirección más precisa
+    await reverseGeocode(lat, lng);
+    
     setSearchResults([]);
     setSearchQuery('');
     
     if (mapRef.current && leafletRef.current) {
       const L = leafletRef.current;
-      mapRef.current.setView([lat, lng], 16);
+      mapRef.current.setView([lat, lng], 17); // Zoom más cercano para mayor precisión
       
       if (markerRef.current) {
         markerRef.current.setLatLng([lat, lng]);
@@ -346,7 +382,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const { Geolocation } = await import('@capacitor/geolocation');
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
-          timeout: 10000
+          timeout: 15000,
+          maximumAge: 0 // Forzar nueva lectura para mayor precisión
         });
         
         const { latitude, longitude } = position.coords;
@@ -361,18 +398,22 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             console.error('Error getting location:', error);
             toast({
               title: "Error de ubicación",
-              description: "No se pudo obtener tu ubicación",
+              description: "No se pudo obtener tu ubicación exacta",
               variant: "destructive"
             });
           },
-          { enableHighAccuracy: true, timeout: 10000 }
+          { 
+            enableHighAccuracy: true, 
+            timeout: 15000,
+            maximumAge: 0 // Forzar nueva lectura para mayor precisión
+          }
         );
       }
     } catch (error) {
       console.error('Error al obtener ubicación:', error);
       toast({
         title: "Error de ubicación",
-        description: "No se pudo obtener tu ubicación",
+        description: "No se pudo obtener tu ubicación exacta",
         variant: "destructive"
       });
     } finally {
@@ -381,10 +422,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const handleLocationSuccess = async (latitude: number, longitude: number) => {
+    console.log('📍 Ubicación GPS exacta obtenida:', { latitude, longitude });
+    
     if (isLocationInArequipa(latitude, longitude)) {
       if (mapRef.current && leafletRef.current) {
         const L = leafletRef.current;
-        mapRef.current.setView([latitude, longitude], 17);
+        mapRef.current.setView([latitude, longitude], 18); // Zoom máximo para precisión
         
         if (markerRef.current) {
           markerRef.current.setLatLng([latitude, longitude]);
@@ -395,8 +438,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       
       await reverseGeocode(latitude, longitude);
       toast({
-        title: "Ubicación Obtenida",
-        description: "Ubicación actual detectada correctamente"
+        title: "Ubicación Exacta Obtenida",
+        description: "Tu ubicación actual fue detectada con precisión GPS"
       });
     } else {
       toast({
@@ -409,11 +452,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const confirmSelection = () => {
     if (selectedLocation) {
+      console.log('✅ Confirmando ubicación exacta:', selectedLocation);
       onSelectLocation(selectedLocation.address);
       onClose();
       toast({
-        title: "Ubicación confirmada",
-        description: "Dirección actualizada correctamente"
+        title: "Ubicación Exacta Confirmada",
+        description: "Dirección actualizada con coordenadas precisas"
       });
     }
   };
@@ -423,7 +467,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden">
         <div className="flex flex-col h-full">
           <DialogHeader className="p-3 sm:p-4 pb-2 border-b">
-            <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación en Arequipa</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación Exacta en Arequipa</DialogTitle>
           </DialogHeader>
           
           {!hasLocationPermission && locationPermissionStatus === 'denied' && (
@@ -431,7 +475,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               <div className="flex items-center gap-2 text-orange-700">
                 <AlertTriangle className="h-4 w-4" />
                 <span className="text-sm">
-                  Para usar tu ubicación, ve a Configuración de la app y permite el acceso a ubicación
+                  Para usar tu ubicación exacta, ve a Configuración de la app y permite el acceso a ubicación
                 </span>
               </div>
             </div>
@@ -441,7 +485,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Input
-                  placeholder="Buscar dirección en Arequipa..."
+                  placeholder="Buscar dirección exacta en Arequipa..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && searchLocations()}
@@ -473,7 +517,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 ) : (
                   <Navigation className="h-3 w-3 sm:h-4 sm:w-4" />
                 )}
-                <span className="hidden sm:inline">Mi ubicación</span>
+                <span className="hidden sm:inline">Mi ubicación exacta</span>
                 <span className="sm:hidden">GPS</span>
               </Button>
             </div>
@@ -503,16 +547,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-3 sm:px-4 min-h-0">
-            {!mapReady ? (
+            {!mapReady || !mapContainerId ? (
               <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Cargando mapa...</p>
+                  <p className="text-sm text-gray-600">Preparando mapa con ID único...</p>
+                  {mapContainerId && <p className="text-xs text-gray-500">ID: {mapContainerId}</p>}
                 </div>
               </div>
             ) : (
               <div 
                 ref={mapContainerRef}
+                id={mapContainerId}
                 className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2"
                 style={{ minHeight: '300px' }}
               />
@@ -523,13 +569,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <div className="px-3 sm:px-4 py-2 border-t bg-gray-50">
               <div className="flex items-center gap-2 text-green-600 mb-1">
                 <MapPin className="h-4 w-4" />
-                <span className="font-medium text-sm">Ubicación seleccionada:</span>
+                <span className="font-medium text-sm">Ubicación exacta seleccionada:</span>
               </div>
               <p className="text-sm text-gray-700 break-words">
                 {selectedLocation.address}
               </p>
               <p className="text-xs text-gray-500">
-                Lat: {selectedLocation.lat.toFixed(6)}, Lng: {selectedLocation.lng.toFixed(6)}
+                Coordenadas precisas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
               </p>
             </div>
           )}
@@ -544,7 +590,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               size="sm"
               className="bg-primary hover:bg-primary/90"
             >
-              Confirmar
+              Confirmar Ubicación Exacta
             </Button>
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -57,6 +56,31 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     south: -16.6,
     east: -71.2,
     west: -71.8
+  };
+
+  // Función para limpiar completamente el mapa
+  const cleanupMap = () => {
+    console.log('🧹 Limpiando mapa completamente...');
+    
+    if (markerRef.current) {
+      console.log('🗑️ Removiendo marcador');
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
+
+    if (mapRef.current) {
+      console.log('🗑️ Removiendo mapa');
+      mapRef.current.off(); // Remover todos los event listeners
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    // Limpiar el contenedor del mapa
+    if (mapContainerRef.current) {
+      mapContainerRef.current.innerHTML = '';
+    }
+
+    console.log('✅ Mapa limpiado completamente');
   };
 
   // Cargar Leaflet dinámicamente
@@ -131,14 +155,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }
     }
 
+    // Cleanup cuando el modal se cierre o el componente se desmonte
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markerRef.current = null;
+      if (!isOpen) {
+        cleanupMap();
       }
     };
   }, [isOpen, isMapLoaded]);
+
+  // Limpiar mapa cuando se cierre el modal
+  useEffect(() => {
+    if (!isOpen) {
+      cleanupMap();
+    }
+  }, [isOpen]);
 
   // Verificar permisos de ubicación al cargar
   useEffect(() => {
@@ -457,9 +487,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const handleClose = () => {
+    console.log('🚪 Cerrando LocationSelector...');
     setSearchQuery('');
     setSearchResults([]);
     setSelectedLocation(null);
+    // La limpieza del mapa se hace automáticamente en el useEffect
     onClose();
   };
 

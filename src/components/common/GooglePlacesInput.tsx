@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -92,8 +91,7 @@ const GooglePlacesInput: React.FC<GooglePlacesInputProps> = ({
           
           const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
             types: ['address'],
-            componentRestrictions: { country: 'pe' }, // Restringir a Perú
-            fields: ['formatted_address', 'geometry']
+            componentRestrictions: { country: 'pe' } // Restringir a Perú
           });
 
           autocomplete.addListener('place_changed', () => {

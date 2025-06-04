@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -46,7 +45,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<any>(null);
-  const leafletLoadedRef = useRef<boolean>(false);
+  const leafletRef = useRef<any>(null);
 
   // Coordenadas y límites de Arequipa
   const AREQUIPA_CENTER: [number, number] = [-16.409047, -71.537451];
@@ -57,28 +56,27 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Cargar Leaflet de forma más eficiente
+  // Cargar Leaflet
   const loadLeaflet = async () => {
-    if (leafletLoadedRef.current) return true;
+    if (leafletRef.current) return leafletRef.current;
     
     try {
-      console.log('🚀 Cargando Leaflet optimizado...');
+      console.log('🚀 Cargando Leaflet...');
       
-      // Cargar CSS primero si no existe
+      // Cargar CSS si no existe
       if (!document.querySelector('link[href*="leaflet.css"]')) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
         document.head.appendChild(link);
         
-        // Esperar a que el CSS se cargue
         await new Promise(resolve => {
           link.onload = resolve;
-          setTimeout(resolve, 1000); // fallback
+          setTimeout(resolve, 1000);
         });
       }
       
-      // Cargar el módulo de Leaflet
+      // Cargar Leaflet
       const leafletModule = await import('leaflet');
       const L = leafletModule.default;
       
@@ -90,8 +88,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
       });
       
-      leafletLoadedRef.current = true;
-      console.log('✅ Leaflet cargado y configurado');
+      leafletRef.current = L;
+      console.log('✅ Leaflet cargado');
       return L;
     } catch (error) {
       console.error('❌ Error cargando Leaflet:', error);
@@ -99,7 +97,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Inicializar mapa de forma más directa
+  // Inicializar mapa
   const initializeMap = async () => {
     if (!mapContainerRef.current || mapRef.current) return;
     
@@ -109,7 +107,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     try {
       console.log('🗺️ Inicializando mapa...');
       
-      // Crear mapa inmediatamente
       mapRef.current = L.map(mapContainerRef.current, {
         center: AREQUIPA_CENTER,
         zoom: 13,
@@ -117,18 +114,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         preferCanvas: true
       });
 
-      // Añadir tiles
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
         maxZoom: 19
       }).addTo(mapRef.current);
 
-      // Click handler
       mapRef.current.on('click', async (e: any) => {
         const { lat, lng } = e.latlng;
         
         if (isLocationInArequipa(lat, lng)) {
-          // Mover/crear marcador
           if (markerRef.current) {
             markerRef.current.setLatLng([lat, lng]);
           } else {
@@ -146,9 +140,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       });
 
       setMapReady(true);
-      console.log('✅ Mapa inicializado correctamente');
+      console.log('✅ Mapa inicializado');
       
-      // Geocodificar dirección actual si existe
       if (currentValue && !selectedLocation) {
         setTimeout(() => geocodeCurrentAddress(), 500);
       }
@@ -234,17 +227,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         
-        if (isLocationInArequipa(lat, lng) && mapRef.current) {
-          const L = await loadLeaflet();
-          if (L) {
-            setSelectedLocation({ lat, lng, address: currentValue });
-            mapRef.current.setView([lat, lng], 16);
-            
-            if (markerRef.current) {
-              markerRef.current.setLatLng([lat, lng]);
-            } else {
-              markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
-            }
+        if (isLocationInArequipa(lat, lng) && mapRef.current && leafletRef.current) {
+          const L = leafletRef.current;
+          setSelectedLocation({ lat, lng, address: currentValue });
+          mapRef.current.setView([lat, lng], 16);
+          
+          if (markerRef.current) {
+            markerRef.current.setLatLng([lat, lng]);
+          } else {
+            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
           }
         }
       }
@@ -326,16 +317,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchResults([]);
     setSearchQuery('');
     
-    if (mapRef.current) {
-      const L = await loadLeaflet();
-      if (L) {
-        mapRef.current.setView([lat, lng], 16);
-        
-        if (markerRef.current) {
-          markerRef.current.setLatLng([lat, lng]);
-        } else {
-          markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
-        }
+    if (mapRef.current && leafletRef.current) {
+      const L = leafletRef.current;
+      mapRef.current.setView([lat, lng], 16);
+      
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng]);
+      } else {
+        markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
       }
     }
   };
@@ -393,16 +382,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const handleLocationSuccess = async (latitude: number, longitude: number) => {
     if (isLocationInArequipa(latitude, longitude)) {
-      if (mapRef.current) {
-        const L = await loadLeaflet();
-        if (L) {
-          mapRef.current.setView([latitude, longitude], 17);
-          
-          if (markerRef.current) {
-            markerRef.current.setLatLng([latitude, longitude]);
-          } else {
-            markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
-          }
+      if (mapRef.current && leafletRef.current) {
+        const L = leafletRef.current;
+        mapRef.current.setView([latitude, longitude], 17);
+        
+        if (markerRef.current) {
+          markerRef.current.setLatLng([latitude, longitude]);
+        } else {
+          markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
         }
       }
       

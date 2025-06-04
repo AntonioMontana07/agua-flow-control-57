@@ -9,76 +9,42 @@ export class NotificationService {
   static async initialize() {
     if (!Capacitor.isNativePlatform()) {
       console.log('Notificaciones no disponibles en web');
-      return true; // En web siempre devolvemos true
+      return true;
     }
 
     try {
-      // Importación dinámica para evitar errores en web
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const { PushNotifications } = await import('@capacitor/push-notifications');
-      
       console.log('Iniciando configuración de notificaciones...');
       
-      // Manejo de notificaciones locales con timeout
-      try {
-        const localPermissionPromise = LocalNotifications.requestPermissions();
-        const localPermissions = await Promise.race([
-          localPermissionPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        console.log('Permisos de notificaciones locales:', localPermissions);
-      } catch (localError) {
-        console.log('Error al solicitar permisos locales (continuando sin notificaciones locales):', localError);
-      }
+      // Solo importar y usar notificaciones locales, evitar push notifications que pueden causar crashes
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
       
-      // Manejo de push notifications con timeout y sin bloquear la app
+      // Verificar si las notificaciones locales están disponibles
       try {
-        let permStatus = await Promise.race([
-          PushNotifications.checkPermissions(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout check')), 3000))
-        ]) as PermissionStatus;
-        console.log('Estado actual de permisos push:', permStatus);
+        const localPermissions = await LocalNotifications.checkPermissions();
+        console.log('Estado de permisos locales:', localPermissions);
         
-        if (permStatus.receive === 'prompt') {
-          console.log('Solicitando permisos push...');
-          // Usar timeout más corto y no esperar indefinidamente
-          try {
-            permStatus = await Promise.race([
-              PushNotifications.requestPermissions(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout request')), 8000))
-            ]) as PermissionStatus;
-            console.log('Resultado de solicitud de permisos:', permStatus);
-          } catch (requestError) {
-            console.log('Timeout o error en solicitud de permisos (continuando):', requestError);
-            // Continuamos sin push notifications
-            return true;
-          }
+        // Solo solicitar permisos si es necesario y de forma no bloqueante
+        if (localPermissions.display === 'prompt') {
+          console.log('Solicitando permisos de notificaciones locales...');
+          // Usar setTimeout para hacer la solicitud asíncrona y no bloqueante
+          setTimeout(async () => {
+            try {
+              await LocalNotifications.requestPermissions();
+              console.log('Permisos de notificaciones locales solicitados');
+            } catch (error) {
+              console.log('Error al solicitar permisos (no crítico):', error);
+            }
+          }, 1000);
         }
-        
-        // Solo intentar registrar si tenemos permisos explícitos
-        if (permStatus.receive === 'granted') {
-          try {
-            await Promise.race([
-              PushNotifications.register(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout register')), 3000))
-            ]);
-            console.log('Registro para push notifications exitoso');
-          } catch (registerError) {
-            console.log('Error al registrar push notifications (no crítico):', registerError);
-          }
-        } else {
-          console.log('Permisos push no otorgados o denegados, continuando sin push notifications');
-        }
-      } catch (pushError) {
-        console.log('Error general con push notifications (continuando):', pushError);
+      } catch (localError) {
+        console.log('Error con notificaciones locales (continuando):', localError);
       }
 
-      console.log('Configuración de notificaciones completada exitosamente');
+      console.log('Configuración de notificaciones completada');
       return true;
       
     } catch (error) {
-      console.error('Error general al inicializar notificaciones (continuando sin notificaciones):', error);
-      // Siempre devolvemos true para no bloquear la app
+      console.error('Error al inicializar notificaciones (continuando):', error);
       return true;
     }
   }
@@ -88,6 +54,13 @@ export class NotificationService {
 
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
+      // Verificar permisos antes de enviar
+      const permissions = await LocalNotifications.checkPermissions();
+      if (permissions.display !== 'granted') {
+        console.log('Sin permisos para notificaciones');
+        return false;
+      }
       
       await LocalNotifications.schedule({
         notifications: [
@@ -110,7 +83,7 @@ export class NotificationService {
       console.log(`Notificación de stock enviada para: ${producto}`);
       return true;
     } catch (error) {
-      console.error('Error al enviar notificación de stock (no crítico):', error);
+      console.error('Error al enviar notificación de stock:', error);
       return false;
     }
   }
@@ -120,6 +93,13 @@ export class NotificationService {
 
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
+      // Verificar permisos antes de enviar
+      const permissions = await LocalNotifications.checkPermissions();
+      if (permissions.display !== 'granted') {
+        console.log('Sin permisos para notificaciones');
+        return false;
+      }
       
       await LocalNotifications.schedule({
         notifications: [
@@ -143,7 +123,7 @@ export class NotificationService {
       console.log(`Notificación de pedido enviada para: ${cliente}`);
       return true;
     } catch (error) {
-      console.error('Error al enviar notificación de pedido (no crítico):', error);
+      console.error('Error al enviar notificación de pedido:', error);
       return false;
     }
   }
@@ -153,6 +133,13 @@ export class NotificationService {
     
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
+      // Verificar permisos antes de enviar
+      const permissions = await LocalNotifications.checkPermissions();
+      if (permissions.display !== 'granted') {
+        console.log('Sin permisos para notificaciones');
+        return false;
+      }
       
       const productosTexto = productos.map(p => `${p.nombre}: ${p.cantidad}`).join(', ');
       
@@ -176,7 +163,7 @@ export class NotificationService {
       console.log('Notificación de stock crítico enviada');
       return true;
     } catch (error) {
-      console.error('Error al enviar notificación de stock crítico (no crítico):', error);
+      console.error('Error al enviar notificación de stock crítico:', error);
       return false;
     }
   }

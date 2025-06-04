@@ -1,5 +1,7 @@
+
 import { dbManager } from '@/lib/database';
 import { NotificationService } from './NotificationService';
+import { ScheduledNotificationService } from './ScheduledNotificationService';
 import { Capacitor } from '@capacitor/core';
 
 export interface Pedido {
@@ -32,7 +34,7 @@ export class PedidoService {
     console.log('Creando pedido con estado Pendiente:', nuevoPedido);
     const id = await dbManager.add('pedidos', nuevoPedido);
     
-    // Enviar notificación de nuevo pedido
+    // Enviar notificación inmediata de nuevo pedido
     if (Capacitor.isNativePlatform()) {
       await NotificationService.enviarNotificacionPedido(
         nuevoPedido.clienteNombre,
@@ -40,6 +42,15 @@ export class PedidoService {
         nuevoPedido.total
       );
     }
+    
+    // Programar notificación de recordatorio 30 minutos antes de la entrega
+    await ScheduledNotificationService.programarNotificacionPedido(
+      id,
+      nuevoPedido.clienteNombre,
+      nuevoPedido.fechaEntrega,
+      nuevoPedido.horaEntrega,
+      30 // 30 minutos antes
+    );
     
     return id;
   }

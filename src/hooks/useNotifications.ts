@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { NotificationService } from '@/services/NotificationService';
+import { ScheduledNotificationService } from '@/services/ScheduledNotificationService';
 import { useToast } from '@/hooks/use-toast';
 
 export const useNotifications = () => {
@@ -15,17 +16,20 @@ export const useNotifications = () => {
         setHasPermission(permissionGranted);
         setIsInitialized(true);
         
+        // Inicializar también las notificaciones programadas
+        await ScheduledNotificationService.inicializar();
+        
         if (permissionGranted) {
           console.log('✅ Sistema de notificaciones inicializado correctamente');
           toast({
             title: "Notificaciones activadas",
-            description: "Recibirás alertas de stock y pedidos",
+            description: "Recibirás alertas de stock y pedidos programadas",
           });
         } else {
           console.log('⚠️ Notificaciones no disponibles - permisos denegados');
           toast({
             title: "Notificaciones deshabilitadas",
-            description: "Para recibir alertas, habilita las notificaciones en la configuración",
+            description: "Para recibir alertas programadas, habilita las notificaciones en la configuración",
             variant: "destructive"
           });
         }

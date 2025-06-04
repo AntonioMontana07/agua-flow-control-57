@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, X, Navigation } from 'lucide-react';
+import { MapPin, Search, Loader2, X, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -39,6 +39,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -51,6 +53,68 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     south: -16.6,
     east: -71.2,
     west: -71.8
+  };
+
+  // Verificar permisos de ubicación al cargar
+  useEffect(() => {
+    checkLocationPermission();
+  }, []);
+
+  // Solicitar permisos de ubicación
+  const checkLocationPermission = async () => {
+    console.log('🔍 Verificando permisos de ubicación...');
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Geolocation } = await import('@capacitor/geolocation');
+        
+        // Verificar permisos actuales
+        const permission = await Geolocation.checkPermissions();
+        console.log('📱 Estado actual de permisos de ubicación:', permission);
+        
+        setLocationPermissionStatus(permission.location);
+        
+        if (permission.location === 'granted') {
+          setHasLocationPermission(true);
+          console.log('✅ Permisos de ubicación ya concedidos');
+        } else if (permission.location === 'prompt' || permission.location === 'prompt-with-rationale') {
+          console.log('❓ Solicitando permisos de ubicación...');
+          const requestResult = await Geolocation.requestPermissions();
+          setLocationPermissionStatus(requestResult.location);
+          setHasLocationPermission(requestResult.location === 'granted');
+          
+          if (requestResult.location === 'granted') {
+            console.log('✅ Permisos de ubicación concedidos');
+            toast({
+              title: "✅ Permisos Concedidos",
+              description: "Ya puedes usar tu ubicación actual"
+            });
+          } else {
+            console.log('❌ Permisos de ubicación denegados');
+            toast({
+              title: "⚠️ Permisos de Ubicación",
+              description: "Para usar tu ubicación, ve a Configuración y permite el acceso",
+              variant: "destructive"
+            });
+          }
+        } else {
+          console.log('❌ Permisos de ubicación denegados permanentemente');
+          setHasLocationPermission(false);
+          toast({
+            title: "⚠️ Permisos Requeridos",
+            description: "Ve a Configuración de la app y permite el acceso a ubicación",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error al verificar permisos de ubicación:', error);
+      }
+    } else {
+      // En navegador web
+      if (navigator.geolocation) {
+        setHasLocationPermission(true);
+      }
+    }
   };
 
   // Limpiar al desmontar
@@ -332,28 +396,37 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery('');
   };
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
+  const getCurrentLocation = async () => {
+    if (!hasLocationPermission) {
       toast({
-        title: "Geolocalización no disponible",
-        description: "Tu dispositivo no soporta geolocalización",
+        title: "⚠️ Permisos Requeridos",
+        description: "Ve a Configuración y permite el acceso a ubicación",
         variant: "destructive"
       });
+      await checkLocationPermission();
       return;
     }
 
     setIsGettingLocation(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Usar Capacitor Geolocation en móvil
+        const { Geolocation } = await import('@capacitor/geolocation');
+        
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000
+        });
+        
         const { latitude, longitude } = position.coords;
         
         if (isLocationInArequipa(latitude, longitude)) {
           updateMapLocation(latitude, longitude, 'Mi ubicación actual');
           reverseGeocode(latitude, longitude);
           toast({
-            title: "Ubicación obtenida",
-            description: "Ubicación actual detectada"
+            title: "✅ Ubicación Obtenida",
+            description: "Ubicación actual detectada correctamente"
           });
         } else {
           toast({
@@ -362,18 +435,48 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             variant: "destructive"
           });
         }
-        setIsGettingLocation(false);
-      },
-      () => {
-        setIsGettingLocation(false);
-        toast({
-          title: "Error de ubicación",
-          description: "No se pudo obtener tu ubicación",
-          variant: "destructive"
-        });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
+      } else {
+        // Usar navegador web
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            
+            if (isLocationInArequipa(latitude, longitude)) {
+              updateMapLocation(latitude, longitude, 'Mi ubicación actual');
+              reverseGeocode(latitude, longitude);
+              toast({
+                title: "✅ Ubicación Obtenida",
+                description: "Ubicación actual detectada"
+              });
+            } else {
+              toast({
+                title: "Fuera de Arequipa",
+                description: "Tu ubicación actual está fuera de Arequipa",
+                variant: "destructive"
+              });
+            }
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            toast({
+              title: "Error de ubicación",
+              description: "No se pudo obtener tu ubicación",
+              variant: "destructive"
+            });
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
+      }
+    } catch (error) {
+      console.error('Error al obtener ubicación:', error);
+      toast({
+        title: "Error de ubicación",
+        description: "No se pudo obtener tu ubicación",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGettingLocation(false);
+    }
   };
 
   const confirmSelection = () => {
@@ -414,6 +517,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               </Button>
             </div>
           </DialogHeader>
+          
+          {/* Alerta de permisos si no están concedidos */}
+          {!hasLocationPermission && locationPermissionStatus === 'denied' && (
+            <div className="p-3 bg-orange-50 border-b border-orange-200">
+              <div className="flex items-center gap-2 text-orange-700">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm">
+                  Para usar tu ubicación, ve a Configuración de la app y permite el acceso a ubicación
+                </span>
+              </div>
+            </div>
+          )}
           
           {/* Search Bar */}
           <div className="p-3 sm:p-4 pb-2 border-b">

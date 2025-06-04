@@ -37,23 +37,64 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [isLoadingCurrentLocation, setIsLoadingCurrentLocation] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const { toast } = useToast();
 
-  // Cargar Leaflet (OpenStreetMap)
+  // Cargar Leaflet cuando se abre el diálogo
   useEffect(() => {
     if (isOpen && !mapLoaded) {
       loadLeafletMap();
     }
-  }, [isOpen, mapLoaded]);
+  }, [isOpen]);
+
+  // Cargar ubicación actual cuando hay currentValue
+  useEffect(() => {
+    if (isOpen && currentValue && mapLoaded && !isLoadingCurrentLocation) {
+      loadCurrentLocationFromAddress();
+    }
+  }, [isOpen, currentValue, mapLoaded]);
+
+  const loadCurrentLocationFromAddress = async () => {
+    if (!currentValue?.trim()) return;
+    
+    setIsLoadingCurrentLocation(true);
+    try {
+      // Intentar geocodificar la dirección actual
+      const query = `${currentValue}, Arequipa, Peru`;
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1&countrycodes=pe&accept-language=es`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const result = data[0];
+          const lat = parseFloat(result.lat);
+          const lng = parseFloat(result.lon);
+          
+          if (mapInstanceRef.current && markerRef.current && window.L) {
+            mapInstanceRef.current.setView([lat, lng], 16);
+            markerRef.current.setLatLng([lat, lng]);
+          }
+          
+          setSelectedLocation({ lat, lng, address: currentValue });
+        }
+      }
+    } catch (error) {
+      console.error('Error al geocodificar dirección actual:', error);
+    } finally {
+      setIsLoadingCurrentLocation(false);
+    }
+  };
 
   const loadLeafletMap = () => {
     // Verificar si Leaflet ya está cargado
     if (window.L) {
       setMapLoaded(true);
-      initializeMap();
+      setTimeout(initializeMap, 50);
       return;
     }
 
@@ -72,7 +113,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     script.crossOrigin = '';
     script.onload = () => {
       setMapLoaded(true);
-      setTimeout(initializeMap, 100); // Pequeño delay para asegurar que el DOM esté listo
+      setTimeout(initializeMap, 50);
     };
     script.onerror = () => {
       toast({
@@ -85,18 +126,24 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const initializeMap = () => {
-    if (!mapRef.current || !window.L) return;
-
-    // Coordenadas de Arequipa, Perú
-    const arequipaCenter = [-16.409047, -71.537451];
+    if (!mapRef.current || !window.L || mapInstanceRef.current) return;
 
     try {
-      const map = window.L.map(mapRef.current).setView(arequipaCenter, 13);
+      // Coordenadas de Arequipa, Perú
+      const arequipaCenter: [number, number] = [-16.409047, -71.537451];
 
-      // Agregar capa de OpenStreetMap
-      window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const map = window.L.map(mapRef.current, {
+        preferCanvas: true,
+        zoomControl: true
+      }).setView(arequipaCenter, 13);
+
+      // Agregar capa de OpenStreetMap con mejor rendimiento
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors',
+        detectRetina: true,
+        updateWhenIdle: false,
+        keepBuffer: 2
       }).addTo(map);
 
       mapInstanceRef.current = map;
@@ -121,11 +168,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         reverseGeocode(lat, lng);
       });
 
-      // Establecer ubicación inicial si hay una
-      if (selectedLocation) {
-        marker.setLatLng([selectedLocation.lat, selectedLocation.lng]);
-        map.setView([selectedLocation.lat, selectedLocation.lng], 16);
-      }
+      console.log('Mapa inicializado correctamente');
     } catch (error) {
       console.error('Error inicializando mapa:', error);
       toast({
@@ -266,15 +309,24 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  // Limpiar al cerrar
+  const handleClose = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedLocation(null);
+    setIsLoadingCurrentLocation(false);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] max-w-[95vw] max-h-[95vh] p-0">
         <div className="flex flex-col h-[80vh]">
           {/* Header */}
           <DialogHeader className="p-4 pb-2">
             <div className="flex items-center justify-between">
               <DialogTitle>Seleccionar Ubicación</DialogTitle>
-              <Button variant="ghost" size="sm" onClick={onClose}>
+              <Button variant="ghost" size="sm" onClick={handleClose}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -345,15 +397,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           {/* Map Container */}
           <div className="flex-1 px-4">
             <div className="relative w-full h-full bg-gray-200 rounded-lg overflow-hidden">
-              {mapLoaded ? (
-                <div ref={mapRef} className="w-full h-full" />
-              ) : (
+              {!mapLoaded || isLoadingCurrentLocation ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Cargando mapa...</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isLoadingCurrentLocation ? 'Cargando ubicación actual...' : 'Cargando mapa...'}
+                    </p>
                   </div>
                 </div>
+              ) : (
+                <div ref={mapRef} className="w-full h-full" />
               )}
             </div>
           </div>
@@ -375,7 +429,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
           {/* Actions */}
           <div className="flex justify-end gap-2 p-4 pt-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose}>
               Cancelar
             </Button>
             <Button 

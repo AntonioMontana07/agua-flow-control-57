@@ -5,7 +5,7 @@ export class NotificationService {
   static async initialize() {
     if (!Capacitor.isNativePlatform()) {
       console.log('Notificaciones no disponibles en web');
-      return;
+      return false;
     }
 
     try {
@@ -13,31 +13,53 @@ export class NotificationService {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       const { PushNotifications } = await import('@capacitor/push-notifications');
       
-      // Solicitar permisos para notificaciones locales
-      await LocalNotifications.requestPermissions();
+      console.log('Iniciando configuración de notificaciones...');
       
-      // Solicitar permisos para notificaciones push
-      let permStatus = await PushNotifications.checkPermissions();
-      
-      if (permStatus.receive === 'prompt') {
-        permStatus = await PushNotifications.requestPermissions();
+      // Solicitar permisos para notificaciones locales con manejo de errores
+      try {
+        const localPermissions = await LocalNotifications.requestPermissions();
+        console.log('Permisos de notificaciones locales:', localPermissions);
+      } catch (localError) {
+        console.log('Error al solicitar permisos locales (continuando):', localError);
       }
       
-      if (permStatus.receive !== 'granted') {
-        throw new Error('Permisos de notificación no otorgados');
+      // Solicitar permisos para notificaciones push con manejo de errores
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+        console.log('Estado actual de permisos push:', permStatus);
+        
+        if (permStatus.receive === 'prompt') {
+          console.log('Solicitando permisos push...');
+          permStatus = await PushNotifications.requestPermissions();
+          console.log('Resultado de solicitud de permisos:', permStatus);
+        }
+        
+        if (permStatus.receive === 'granted') {
+          // Solo registrar si los permisos están garantizados
+          try {
+            await PushNotifications.register();
+            console.log('Registro para push notifications exitoso');
+          } catch (registerError) {
+            console.log('Error al registrar push notifications (no crítico):', registerError);
+          }
+        } else {
+          console.log('Permisos push no otorgados, continuando sin push notifications');
+        }
+      } catch (pushError) {
+        console.log('Error con push notifications (continuando):', pushError);
       }
 
-      // Registrar para notificaciones push
-      await PushNotifications.register();
-      console.log('Notificaciones inicializadas correctamente');
+      console.log('Configuración de notificaciones completada');
+      return true;
       
     } catch (error) {
-      console.error('Error al inicializar notificaciones:', error);
+      console.error('Error general al inicializar notificaciones:', error);
+      return false;
     }
   }
 
   static async enviarNotificacionStock(producto: string, cantidad: number, minimo: number) {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform()) return false;
 
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
@@ -61,13 +83,15 @@ export class NotificationService {
         ]
       });
       console.log(`Notificación de stock enviada para: ${producto}`);
+      return true;
     } catch (error) {
-      console.error('Error al enviar notificación de stock:', error);
+      console.error('Error al enviar notificación de stock (no crítico):', error);
+      return false;
     }
   }
 
   static async enviarNotificacionPedido(cliente: string, producto: string, total: number) {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform()) return false;
 
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
@@ -92,13 +116,15 @@ export class NotificationService {
         ]
       });
       console.log(`Notificación de pedido enviada para: ${cliente}`);
+      return true;
     } catch (error) {
-      console.error('Error al enviar notificación de pedido:', error);
+      console.error('Error al enviar notificación de pedido (no crítico):', error);
+      return false;
     }
   }
 
   static async enviarNotificacionStockCritico(productos: Array<{nombre: string, cantidad: number, minimo: number}>) {
-    if (!Capacitor.isNativePlatform() || productos.length === 0) return;
+    if (!Capacitor.isNativePlatform() || productos.length === 0) return false;
     
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
@@ -123,8 +149,10 @@ export class NotificationService {
         ]
       });
       console.log('Notificación de stock crítico enviada');
+      return true;
     } catch (error) {
-      console.error('Error al enviar notificación de stock crítico:', error);
+      console.error('Error al enviar notificación de stock crítico (no crítico):', error);
+      return false;
     }
   }
 }

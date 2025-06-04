@@ -25,6 +25,25 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validaciones del formulario
+    if (!name.trim()) {
+      toast({
+        title: "Error",
+        description: "El nombre es requerido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!email.trim()) {
+      toast({
+        title: "Error",
+        description: "El email es requerido",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({
         title: "Error",
@@ -46,8 +65,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
     setLoading(true);
 
     try {
-      console.log('Iniciando proceso de registro...');
-      const success = await register(email, password, name);
+      console.log('Iniciando proceso de registro para:', email);
+      
+      // Dar un pequeño delay para evitar problemas de timing
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const success = await register(email.trim(), password, name.trim());
       
       if (success) {
         console.log('Registro completado exitosamente');
@@ -55,8 +78,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
           title: "¡Registro exitoso!",
           description: "Tu cuenta ha sido creada correctamente y ya estás conectado",
         });
+        // No necesitamos hacer nada más, el AuthContext se encarga de la navegación
       } else {
-        console.log('Error en registro: email ya existe');
+        console.log('Error en registro: posiblemente email ya existe');
         toast({
           title: "Error de registro",
           description: "Este email ya está registrado. Intenta con otro email o inicia sesión.",
@@ -100,6 +124,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -112,6 +137,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
           
@@ -126,6 +152,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
+                disabled={loading}
               />
               <Button
                 type="button"
@@ -133,6 +160,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
                 size="sm"
                 className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -152,6 +180,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -171,6 +200,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
             variant="ghost"
             className="w-full"
             onClick={onSwitchToLogin}
+            disabled={loading}
           >
             ¿Ya tienes cuenta? Inicia sesión
           </Button>

@@ -47,43 +47,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: 'repartidor'
   };
 
-  // Función para obtener usuarios registrados
+  // Función para obtener usuarios registrados con manejo de errores
   const getRegisteredUsers = (): RegisteredUser[] => {
-    const users = localStorage.getItem('registeredUsers');
-    if (users) {
-      return JSON.parse(users);
+    try {
+      const users = localStorage.getItem('registeredUsers');
+      if (users) {
+        const parsedUsers = JSON.parse(users);
+        // Validar que sea un array
+        if (Array.isArray(parsedUsers)) {
+          return parsedUsers;
+        }
+      }
+    } catch (error) {
+      console.error('Error al leer usuarios del localStorage:', error);
     }
-    // Si no hay usuarios, inicializar con el usuario de prueba
+    
+    // Si hay error o no hay usuarios, inicializar con el usuario de prueba
     const initialUsers = [testUser];
-    localStorage.setItem('registeredUsers', JSON.stringify(initialUsers));
+    try {
+      localStorage.setItem('registeredUsers', JSON.stringify(initialUsers));
+    } catch (error) {
+      console.error('Error al guardar usuarios iniciales:', error);
+    }
     return initialUsers;
   };
 
-  // Función para guardar usuarios registrados
-  const saveRegisteredUsers = (users: RegisteredUser[]) => {
-    localStorage.setItem('registeredUsers', JSON.stringify(users));
+  // Función para guardar usuarios registrados con manejo de errores
+  const saveRegisteredUsers = (users: RegisteredUser[]): boolean => {
+    try {
+      localStorage.setItem('registeredUsers', JSON.stringify(users));
+      return true;
+    } catch (error) {
+      console.error('Error al guardar usuarios en localStorage:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
-    // Verificar si hay una sesión guardada
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
+    const initializeAuth = async () => {
       try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        console.log('Sesión restaurada para usuario:', userData.id);
+        // Verificar si hay una sesión guardada
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+          try {
+            const userData = JSON.parse(savedUser);
+            // Validar que los datos del usuario sean válidos
+            if (userData && userData.id && userData.email && userData.name) {
+              setUser(userData);
+              console.log('Sesión restaurada para usuario:', userData.id);
+            } else {
+              console.log('Datos de usuario inválidos, eliminando sesión');
+              localStorage.removeItem('currentUser');
+            }
+          } catch (parseError) {
+            console.error('Error al parsear datos de usuario:', parseError);
+            localStorage.removeItem('currentUser');
+          }
+        }
       } catch (error) {
-        console.error('Error al restaurar sesión:', error);
-        localStorage.removeItem('currentUser');
+        console.error('Error al inicializar autenticación:', error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
     try {
+      console.log('Intentando login para:', email);
       const registeredUsers = getRegisteredUsers();
       const foundUser = registeredUsers.find(
         user => user.email === email && user.password === password
@@ -98,19 +133,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         
         setUser(userData);
-        localStorage.setItem('currentUser', JSON.stringify(userData));
+        
+        try {
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+        } catch (storageError) {
+          console.error('Error al guardar sesión:', storageError);
+          // Continúar sin guardar la sesión
+        }
+        
         console.log('Login exitoso para usuario:', userData.id);
-        setIsLoading(false);
         return true;
       }
       
       console.log('Credenciales incorrectas para email:', email);
-      setIsLoading(false);
       return false;
     } catch (error) {
       console.error('Error en login:', error);
-      setIsLoading(false);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -118,28 +159,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
+      console.log('Iniciando registro para:', email);
+      
+      // Validaciones básicas
+      if (!email || !password || !name) {
+        console.error('Datos incompletos para registro');
+        return false;
+      }
+
+      if (password.length < 6) {
+        console.error('Contraseña muy corta');
+        return false;
+      }
+
       const registeredUsers = getRegisteredUsers();
       
       // Verificar si el email ya existe
       const existingUser = registeredUsers.find(user => user.email === email);
       if (existingUser) {
         console.log('Email ya registrado:', email);
-        setIsLoading(false);
         return false;
       }
 
-      // Crear nuevo usuario con ID único basado en timestamp y hash
+      // Crear nuevo usuario con ID único
       const newUser: RegisteredUser = {
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        email,
+        email: email.trim(),
         password,
-        name,
+        name: name.trim(),
         role: 'repartidor'
       };
 
-      // Agregar a la lista y guardar inmediatamente
+      console.log('Creando nuevo usuario:', newUser.id);
+
+      // Agregar a la lista y guardar
       const updatedUsers = [...registeredUsers, newUser];
-      saveRegisteredUsers(updatedUsers);
+      const saveSuccess = saveRegisteredUsers(updatedUsers);
+      
+      if (!saveSuccess) {
+        console.error('Error al guardar usuario registrado');
+        return false;
+      }
 
       // Iniciar sesión automáticamente
       const userData = {
@@ -150,25 +210,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       
       setUser(userData);
-      localStorage.setItem('currentUser', JSON.stringify(userData));
+      
+      try {
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+      } catch (storageError) {
+        console.error('Error al guardar sesión después del registro:', storageError);
+        // Continúar, el usuario ya está registrado
+      }
       
       console.log('Registro exitoso y login automático para usuario:', userData.id);
-      console.log('Credenciales guardadas correctamente en localStorage');
-      
-      setIsLoading(false);
       return true;
     } catch (error) {
-      console.error('Error en registro:', error);
-      setIsLoading(false);
+      console.error('Error crítico en registro:', error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = () => {
-    console.log('Cerrando sesión para usuario:', user?.id);
-    setUser(null);
-    localStorage.removeItem('currentUser');
-    console.log('Sesión cerrada. Las credenciales permanecen guardadas para futuros logins.');
+    try {
+      console.log('Cerrando sesión para usuario:', user?.id);
+      setUser(null);
+      localStorage.removeItem('currentUser');
+      console.log('Sesión cerrada correctamente');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
   };
 
   return (

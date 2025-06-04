@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, X, Navigation, AlertTriangle } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 
@@ -542,12 +543,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden">
         <div className="flex flex-col h-full">
           <DialogHeader className="p-3 sm:p-4 pb-2 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación en Arequipa</DialogTitle>
-              <Button variant="ghost" size="sm" onClick={handleClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación en Arequipa</DialogTitle>
           </DialogHeader>
           
           {!hasLocationPermission && locationPermissionStatus === 'denied' && (

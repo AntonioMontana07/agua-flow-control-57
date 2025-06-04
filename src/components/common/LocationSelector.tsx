@@ -43,12 +43,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const [mapInitialized, setMapInitialized] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const { toast } = useToast();
   
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<any>(null);
+  const mapContainerIdRef = useRef<string>('');
 
   // Coordenadas y límites de Arequipa
   const AREQUIPA_CENTER: [number, number] = [-16.409047, -71.537451];
@@ -59,12 +60,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Función para limpiar completamente el mapa
-  const cleanupMap = () => {
-    console.log('🧹 Limpiando mapa completamente...');
+  // Función para limpiar completamente el mapa y reiniciar
+  const destroyMap = () => {
+    console.log('🧹 Destruyendo mapa completamente...');
     
+    // Remover marcador
     if (markerRef.current) {
-      console.log('🗑️ Removiendo marcador');
       try {
         markerRef.current.remove();
       } catch (error) {
@@ -73,8 +74,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       markerRef.current = null;
     }
 
+    // Remover mapa
     if (mapRef.current) {
-      console.log('🗑️ Removiendo mapa');
       try {
         mapRef.current.off(); // Remover todos los event listeners
         mapRef.current.remove();
@@ -84,44 +85,55 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       mapRef.current = null;
     }
 
-    // Limpiar el contenedor del mapa completamente
+    // Limpiar contenedor completamente
     if (mapContainerRef.current) {
-      console.log('🗑️ Limpiando contenedor del mapa');
       mapContainerRef.current.innerHTML = '';
-      // Remover todas las clases de Leaflet
+      // Remover todas las clases de Leaflet del contenedor
       mapContainerRef.current.className = mapContainerRef.current.className
         .split(' ')
         .filter(cls => !cls.startsWith('leaflet'))
         .join(' ');
+      // Remover todos los atributos de Leaflet
+      mapContainerRef.current.removeAttribute('tabindex');
     }
 
-    setMapInitialized(false);
-    console.log('✅ Mapa limpiado completamente');
+    // Reset de estados
+    setMapReady(false);
+    
+    console.log('✅ Mapa destruido completamente');
   };
 
-  // Cargar Leaflet dinámicamente
+  // Cargar Leaflet dinámicamente solo una vez
   useEffect(() => {
     const loadLeaflet = async () => {
       if (!L) {
         console.log('📚 Cargando Leaflet...');
-        const leafletModule = await import('leaflet');
-        L = leafletModule.default;
-        
-        // Importar CSS dinámicamente
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-        
-        // Configurar iconos de Leaflet
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        });
-        
-        console.log('✅ Leaflet cargado correctamente');
+        try {
+          const leafletModule = await import('leaflet');
+          L = leafletModule.default;
+          
+          // Importar CSS dinámicamente si no existe
+          if (!document.querySelector('link[href*="leaflet.css"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(link);
+          }
+          
+          // Configurar iconos de Leaflet
+          delete (L.Icon.Default.prototype as any)._getIconUrl;
+          L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+          });
+          
+          console.log('✅ Leaflet cargado correctamente');
+          setIsMapLoaded(true);
+        } catch (error) {
+          console.error('❌ Error cargando Leaflet:', error);
+        }
+      } else {
         setIsMapLoaded(true);
       }
     };
@@ -129,77 +141,86 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     loadLeaflet();
   }, []);
 
-  // Inicializar el mapa cuando el modal se abra
+  // Inicializar mapa cuando se abra el modal
   useEffect(() => {
-    if (isOpen && mapContainerRef.current && isMapLoaded && L && !mapInitialized) {
-      console.log('🗺️ Inicializando mapa interactivo...');
+    if (isOpen && isMapLoaded && L && mapContainerRef.current && !mapReady) {
+      console.log('🗺️ Inicializando nuevo mapa...');
       
-      // Asegurar que el contenedor esté limpio
-      mapContainerRef.current.innerHTML = '';
+      // Crear un ID único para este contenedor
+      const uniqueId = `map-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      mapContainerIdRef.current = uniqueId;
+      mapContainerRef.current.id = uniqueId;
       
-      try {
-        mapRef.current = L.map(mapContainerRef.current, {
-          preferCanvas: true,
-          zoomControl: true
-        }).setView(AREQUIPA_CENTER, 13);
+      // Pequeño delay para asegurar que el DOM esté listo
+      setTimeout(() => {
+        try {
+          if (mapContainerRef.current && mapContainerIdRef.current) {
+            // Inicializar mapa
+            mapRef.current = L.map(mapContainerIdRef.current, {
+              preferCanvas: true,
+              zoomControl: true,
+              attributionControl: true
+            }).setView(AREQUIPA_CENTER, 13);
 
-        // Añadir capa de mapa
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19
-        }).addTo(mapRef.current);
+            // Añadir capa de mapa
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '© OpenStreetMap contributors',
+              maxZoom: 19
+            }).addTo(mapRef.current);
 
-        // Manejar clicks en el mapa
-        mapRef.current.on('click', async (e: any) => {
-          const { lat, lng } = e.latlng;
-          
-          if (isLocationInArequipa(lat, lng)) {
-            console.log('📍 Ubicación seleccionada en mapa:', lat, lng);
-            
-            // Añadir/mover marcador
-            if (markerRef.current) {
-              markerRef.current.setLatLng([lat, lng]);
-            } else {
-              markerRef.current = L.marker([lat, lng]).addTo(mapRef.current!);
-            }
-            
-            // Obtener dirección
-            await reverseGeocode(lat, lng);
-          } else {
-            toast({
-              title: "Fuera de Arequipa",
-              description: "Selecciona una ubicación dentro de Arequipa",
-              variant: "destructive"
+            // Manejar clicks en el mapa
+            mapRef.current.on('click', async (e: any) => {
+              const { lat, lng } = e.latlng;
+              
+              if (isLocationInArequipa(lat, lng)) {
+                console.log('📍 Ubicación seleccionada en mapa:', lat, lng);
+                
+                // Añadir/mover marcador
+                if (markerRef.current) {
+                  markerRef.current.setLatLng([lat, lng]);
+                } else {
+                  markerRef.current = L.marker([lat, lng]).addTo(mapRef.current!);
+                }
+                
+                // Obtener dirección
+                await reverseGeocode(lat, lng);
+              } else {
+                toast({
+                  title: "Fuera de Arequipa",
+                  description: "Selecciona una ubicación dentro de Arequipa",
+                  variant: "destructive"
+                });
+              }
             });
+
+            setMapReady(true);
+            console.log('✅ Mapa inicializado correctamente');
+
+            // Geocodificar dirección actual si existe
+            if (currentValue && !selectedLocation) {
+              geocodeCurrentAddress();
+            }
           }
-        });
-
-        setMapInitialized(true);
-        console.log('✅ Mapa inicializado correctamente');
-
-        // Geocodificar dirección actual si existe
-        if (currentValue && !selectedLocation) {
-          geocodeCurrentAddress();
+        } catch (error) {
+          console.error('❌ Error inicializando mapa:', error);
+          setMapReady(false);
         }
-
-      } catch (error) {
-        console.error('❌ Error inicializando mapa:', error);
-        setMapInitialized(false);
-      }
+      }, 100);
     }
-  }, [isOpen, isMapLoaded, mapInitialized]);
+  }, [isOpen, isMapLoaded]);
 
-  // Limpiar mapa cuando se cierre el modal
+  // Destruir mapa cuando se cierre el modal
   useEffect(() => {
-    if (!isOpen && mapInitialized) {
-      console.log('🚪 Modal cerrado, limpiando mapa...');
-      cleanupMap();
-      // Reset de estados
+    if (!isOpen) {
+      console.log('🚪 Modal cerrado, destruyendo mapa...');
+      destroyMap();
+      // Reset de todos los estados
       setSearchQuery('');
       setSearchResults([]);
       setSelectedLocation(null);
+      mapContainerIdRef.current = '';
     }
-  }, [isOpen, mapInitialized]);
+  }, [isOpen]);
 
   // Verificar permisos de ubicación al cargar
   useEffect(() => {
@@ -606,11 +627,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-3 sm:px-4 min-h-0">
-            {!isMapLoaded ? (
+            {!isMapLoaded || !mapReady ? (
               <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Cargando mapa...</p>
+                  <p className="text-sm text-gray-600">
+                    {!isMapLoaded ? 'Cargando Leaflet...' : 'Inicializando mapa...'}
+                  </p>
                 </div>
               </div>
             ) : (

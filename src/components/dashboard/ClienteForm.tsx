@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { X } from 'lucide-react';
 import { Cliente } from '@/lib/database';
+import GooglePlacesInput from '@/components/common/GooglePlacesInput';
 
 interface ClienteFormProps {
   cliente?: Cliente | null;
@@ -38,6 +39,13 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  const handleDireccionChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      direccion: value
     }));
   };
 
@@ -77,15 +85,17 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
 
           <div className="space-y-2">
             <Label htmlFor="direccion">Dirección *</Label>
-            <Input
+            <GooglePlacesInput
               id="direccion"
               name="direccion"
-              type="text"
               value={formData.direccion}
-              onChange={handleChange}
+              onChange={handleDireccionChange}
               placeholder="Ej: Calle Principal #123, Colonia Centro"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              💡 Comienza a escribir para ver sugerencias de Google Maps
+            </p>
           </div>
 
           <div className="space-y-2">

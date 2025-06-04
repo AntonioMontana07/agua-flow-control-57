@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -144,7 +145,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     checkLocationPermission();
   }, []);
 
-  // Geocodificar dirección actual
   useEffect(() => {
     if (isOpen && currentValue && !selectedLocation) {
       geocodeCurrentAddress();
@@ -531,16 +531,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
           {searchResults.length > 0 && (
             <div className="px-3 sm:px-4 pb-2">
-              <div className="bg-white border rounded-lg shadow-lg max-h-24 sm:max-h-32 overflow-y-auto">
+              <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-32 sm:max-h-40 overflow-y-auto">
                 {searchResults.map((result, index) => (
                   <button
                     key={index}
                     onClick={() => selectSearchResult(result)}
-                    className="w-full text-left p-2 hover:bg-gray-50 border-b last:border-b-0 text-xs sm:text-sm"
+                    className="w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0 text-sm sm:text-base transition-colors duration-200 focus:outline-none focus:bg-blue-50"
                   >
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate">{result.display_name}</span>
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mt-1 text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-gray-900 font-medium leading-relaxed break-words">
+                          {result.display_name}
+                        </p>
+                      </div>
                     </div>
                   </button>
                 ))}

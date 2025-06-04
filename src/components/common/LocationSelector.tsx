@@ -1,11 +1,14 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MapPin, Search, Loader2, X, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
+import L from 'leaflet';
+
+// Fix for default markers in Leaflet
+import 'leaflet/dist/leaflet.css';
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -41,6 +44,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const { toast } = useToast();
+  
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
   // Coordenadas y límites de Arequipa
   const AREQUIPA_CENTER: [number, number] = [-16.409047, -71.537451];
@@ -50,6 +57,67 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     east: -71.2,
     west: -71.8
   };
+
+  // Inicializar el mapa
+  useEffect(() => {
+    if (isOpen && mapContainerRef.current && !mapRef.current) {
+      console.log('🗺️ Inicializando mapa interactivo...');
+      
+      // Configurar iconos de Leaflet
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+      });
+
+      mapRef.current = L.map(mapContainerRef.current).setView(AREQUIPA_CENTER, 13);
+
+      // Añadir capa de mapa
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(mapRef.current);
+
+      // Manejar clicks en el mapa
+      mapRef.current.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        
+        if (isLocationInArequipa(lat, lng)) {
+          console.log('📍 Ubicación seleccionada en mapa:', lat, lng);
+          
+          // Añadir/mover marcador
+          if (markerRef.current) {
+            markerRef.current.setLatLng([lat, lng]);
+          } else {
+            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current!);
+          }
+          
+          // Obtener dirección
+          await reverseGeocode(lat, lng);
+        } else {
+          toast({
+            title: "Fuera de Arequipa",
+            description: "Selecciona una ubicación dentro de Arequipa",
+            variant: "destructive"
+          });
+        }
+      });
+
+      // Geocodificar dirección actual si existe
+      if (currentValue && !selectedLocation) {
+        geocodeCurrentAddress();
+      }
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [isOpen]);
 
   // Verificar permisos de ubicación al cargar
   useEffect(() => {
@@ -133,6 +201,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         
         if (isLocationInArequipa(lat, lng)) {
           setSelectedLocation({ lat, lng, address: currentValue });
+          
+          // Centrar mapa y añadir marcador
+          if (mapRef.current) {
+            mapRef.current.setView([lat, lng], 16);
+            
+            if (markerRef.current) {
+              markerRef.current.setLatLng([lat, lng]);
+            } else {
+              markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+            }
+          }
         }
       }
     } catch (error) {
@@ -232,6 +311,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSelectedLocation({ lat, lng, address: result.display_name });
     setSearchResults([]);
     setSearchQuery('');
+    
+    // Centrar mapa y añadir marcador
+    if (mapRef.current) {
+      mapRef.current.setView([lat, lng], 16);
+      
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng]);
+      } else {
+        markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+      }
+    }
   };
 
   const getCurrentLocation = async () => {
@@ -259,7 +349,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const { latitude, longitude } = position.coords;
         
         if (isLocationInArequipa(latitude, longitude)) {
-          reverseGeocode(latitude, longitude);
+          // Centrar mapa en ubicación actual
+          if (mapRef.current) {
+            mapRef.current.setView([latitude, longitude], 17);
+            
+            if (markerRef.current) {
+              markerRef.current.setLatLng([latitude, longitude]);
+            } else {
+              markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
+            }
+          }
+          
+          await reverseGeocode(latitude, longitude);
           toast({
             title: "✅ Ubicación Obtenida",
             description: "Ubicación actual detectada correctamente"
@@ -277,6 +378,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             const { latitude, longitude } = position.coords;
             
             if (isLocationInArequipa(latitude, longitude)) {
+              // Centrar mapa en ubicación actual
+              if (mapRef.current) {
+                mapRef.current.setView([latitude, longitude], 17);
+                
+                if (markerRef.current) {
+                  markerRef.current.setLatLng([latitude, longitude]);
+                } else {
+                  markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
+                }
+              }
+              
               reverseGeocode(latitude, longitude);
               toast({
                 title: "✅ Ubicación Obtenida",
@@ -417,35 +529,27 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-3 sm:px-4 min-h-0">
-            <div className="relative w-full h-full bg-gradient-to-br from-blue-50 to-green-50 rounded-lg overflow-hidden border-2 border-dashed border-gray-300">
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center p-8">
-                  <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">
-                    Selector de Ubicación Simplificado
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Usa el botón "Mi ubicación" para obtener tu ubicación actual
-                    o busca una dirección específica en Arequipa
-                  </p>
-                  {selectedLocation && (
-                    <div className="bg-white p-4 rounded-lg border shadow-sm">
-                      <div className="flex items-center gap-2 text-green-600 mb-2">
-                        <MapPin className="h-4 w-4" />
-                        <span className="font-medium">Ubicación seleccionada:</span>
-                      </div>
-                      <p className="text-sm text-gray-700 break-words">
-                        {selectedLocation.address}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Lat: {selectedLocation.lat.toFixed(6)}, Lng: {selectedLocation.lng.toFixed(6)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <div 
+              ref={mapContainerRef}
+              className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2"
+              style={{ minHeight: '300px' }}
+            />
           </div>
+
+          {selectedLocation && (
+            <div className="px-3 sm:px-4 py-2 border-t bg-gray-50">
+              <div className="flex items-center gap-2 text-green-600 mb-1">
+                <MapPin className="h-4 w-4" />
+                <span className="font-medium text-sm">Ubicación seleccionada:</span>
+              </div>
+              <p className="text-sm text-gray-700 break-words">
+                {selectedLocation.address}
+              </p>
+              <p className="text-xs text-gray-500">
+                Lat: {selectedLocation.lat.toFixed(6)}, Lng: {selectedLocation.lng.toFixed(6)}
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 p-3 sm:p-4 pt-2 border-t">
             <Button variant="outline" onClick={handleClose} size="sm">

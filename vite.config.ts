@@ -36,8 +36,7 @@ export default defineConfig(({ mode }) => ({
             '@radix-ui/react-select',
             '@radix-ui/react-accordion',
             '@radix-ui/react-collapsible',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-form'
+            '@radix-ui/react-checkbox'
           ],
           
           // Bibliotecas de routing y query

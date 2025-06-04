@@ -43,6 +43,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapInitialized, setMapInitialized] = useState(false);
   const { toast } = useToast();
   
   const mapRef = useRef<any>(null);
@@ -64,22 +65,37 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     
     if (markerRef.current) {
       console.log('🗑️ Removiendo marcador');
-      markerRef.current.remove();
+      try {
+        markerRef.current.remove();
+      } catch (error) {
+        console.log('Error removiendo marcador:', error);
+      }
       markerRef.current = null;
     }
 
     if (mapRef.current) {
       console.log('🗑️ Removiendo mapa');
-      mapRef.current.off(); // Remover todos los event listeners
-      mapRef.current.remove();
+      try {
+        mapRef.current.off(); // Remover todos los event listeners
+        mapRef.current.remove();
+      } catch (error) {
+        console.log('Error removiendo mapa:', error);
+      }
       mapRef.current = null;
     }
 
-    // Limpiar el contenedor del mapa
+    // Limpiar el contenedor del mapa completamente
     if (mapContainerRef.current) {
+      console.log('🗑️ Limpiando contenedor del mapa');
       mapContainerRef.current.innerHTML = '';
+      // Remover todas las clases de Leaflet
+      mapContainerRef.current.className = mapContainerRef.current.className
+        .split(' ')
+        .filter(cls => !cls.startsWith('leaflet'))
+        .join(' ');
     }
 
+    setMapInitialized(false);
     console.log('✅ Mapa limpiado completamente');
   };
 
@@ -87,6 +103,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   useEffect(() => {
     const loadLeaflet = async () => {
       if (!L) {
+        console.log('📚 Cargando Leaflet...');
         const leafletModule = await import('leaflet');
         L = leafletModule.default;
         
@@ -104,6 +121,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
         });
         
+        console.log('✅ Leaflet cargado correctamente');
         setIsMapLoaded(true);
       }
     };
@@ -111,75 +129,82 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     loadLeaflet();
   }, []);
 
-  // Inicializar el mapa
+  // Inicializar el mapa cuando el modal se abra
   useEffect(() => {
-    if (isOpen && mapContainerRef.current && !mapRef.current && isMapLoaded && L) {
+    if (isOpen && mapContainerRef.current && isMapLoaded && L && !mapInitialized) {
       console.log('🗺️ Inicializando mapa interactivo...');
       
-      mapRef.current = L.map(mapContainerRef.current).setView(AREQUIPA_CENTER, 13);
+      // Asegurar que el contenedor esté limpio
+      mapContainerRef.current.innerHTML = '';
+      
+      try {
+        mapRef.current = L.map(mapContainerRef.current, {
+          preferCanvas: true,
+          zoomControl: true
+        }).setView(AREQUIPA_CENTER, 13);
 
-      // Añadir capa de mapa
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(mapRef.current);
+        // Añadir capa de mapa
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19
+        }).addTo(mapRef.current);
 
-      // Manejar clicks en el mapa
-      mapRef.current.on('click', async (e: any) => {
-        const { lat, lng } = e.latlng;
-        
-        if (isLocationInArequipa(lat, lng)) {
-          console.log('📍 Ubicación seleccionada en mapa:', lat, lng);
+        // Manejar clicks en el mapa
+        mapRef.current.on('click', async (e: any) => {
+          const { lat, lng } = e.latlng;
           
-          // Añadir/mover marcador
-          if (markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
+          if (isLocationInArequipa(lat, lng)) {
+            console.log('📍 Ubicación seleccionada en mapa:', lat, lng);
+            
+            // Añadir/mover marcador
+            if (markerRef.current) {
+              markerRef.current.setLatLng([lat, lng]);
+            } else {
+              markerRef.current = L.marker([lat, lng]).addTo(mapRef.current!);
+            }
+            
+            // Obtener dirección
+            await reverseGeocode(lat, lng);
           } else {
-            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current!);
+            toast({
+              title: "Fuera de Arequipa",
+              description: "Selecciona una ubicación dentro de Arequipa",
+              variant: "destructive"
+            });
           }
-          
-          // Obtener dirección
-          await reverseGeocode(lat, lng);
-        } else {
-          toast({
-            title: "Fuera de Arequipa",
-            description: "Selecciona una ubicación dentro de Arequipa",
-            variant: "destructive"
-          });
-        }
-      });
+        });
 
-      // Geocodificar dirección actual si existe
-      if (currentValue && !selectedLocation) {
-        geocodeCurrentAddress();
+        setMapInitialized(true);
+        console.log('✅ Mapa inicializado correctamente');
+
+        // Geocodificar dirección actual si existe
+        if (currentValue && !selectedLocation) {
+          geocodeCurrentAddress();
+        }
+
+      } catch (error) {
+        console.error('❌ Error inicializando mapa:', error);
+        setMapInitialized(false);
       }
     }
-
-    // Cleanup cuando el modal se cierre o el componente se desmonte
-    return () => {
-      if (!isOpen) {
-        cleanupMap();
-      }
-    };
-  }, [isOpen, isMapLoaded]);
+  }, [isOpen, isMapLoaded, mapInitialized]);
 
   // Limpiar mapa cuando se cierre el modal
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen && mapInitialized) {
+      console.log('🚪 Modal cerrado, limpiando mapa...');
       cleanupMap();
+      // Reset de estados
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedLocation(null);
     }
-  }, [isOpen]);
+  }, [isOpen, mapInitialized]);
 
   // Verificar permisos de ubicación al cargar
   useEffect(() => {
     checkLocationPermission();
   }, []);
-
-  useEffect(() => {
-    if (isOpen && currentValue && !selectedLocation) {
-      geocodeCurrentAddress();
-    }
-  }, [isOpen, currentValue]);
 
   const checkLocationPermission = async () => {
     console.log('🔍 Verificando permisos de ubicación...');
@@ -488,10 +513,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const handleClose = () => {
     console.log('🚪 Cerrando LocationSelector...');
-    setSearchQuery('');
-    setSearchResults([]);
-    setSelectedLocation(null);
-    // La limpieza del mapa se hace automáticamente en el useEffect
     onClose();
   };
 

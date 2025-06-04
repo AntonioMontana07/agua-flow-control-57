@@ -5,10 +5,9 @@ import { Input } from '@/components/ui/input';
 import { MapPin, Search, Loader2, X, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
-import L from 'leaflet';
 
-// Fix for default markers in Leaflet
-import 'leaflet/dist/leaflet.css';
+// Importar Leaflet dinámicamente para evitar problemas de SSR
+let L: any = null;
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -43,11 +42,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const { toast } = useToast();
   
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const markerRef = useRef<any>(null);
 
   // Coordenadas y límites de Arequipa
   const AREQUIPA_CENTER: [number, number] = [-16.409047, -71.537451];
@@ -58,19 +58,39 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
+  // Cargar Leaflet dinámicamente
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      if (!L) {
+        const leafletModule = await import('leaflet');
+        L = leafletModule.default;
+        
+        // Importar CSS dinámicamente
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+        
+        // Configurar iconos de Leaflet
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        });
+        
+        setIsMapLoaded(true);
+      }
+    };
+
+    loadLeaflet();
+  }, []);
+
   // Inicializar el mapa
   useEffect(() => {
-    if (isOpen && mapContainerRef.current && !mapRef.current) {
+    if (isOpen && mapContainerRef.current && !mapRef.current && isMapLoaded && L) {
       console.log('🗺️ Inicializando mapa interactivo...');
       
-      // Configurar iconos de Leaflet
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      });
-
       mapRef.current = L.map(mapContainerRef.current).setView(AREQUIPA_CENTER, 13);
 
       // Añadir capa de mapa
@@ -80,7 +100,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }).addTo(mapRef.current);
 
       // Manejar clicks en el mapa
-      mapRef.current.on('click', async (e) => {
+      mapRef.current.on('click', async (e: any) => {
         const { lat, lng } = e.latlng;
         
         if (isLocationInArequipa(lat, lng)) {
@@ -117,7 +137,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         markerRef.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, isMapLoaded]);
 
   // Verificar permisos de ubicación al cargar
   useEffect(() => {
@@ -203,7 +223,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setSelectedLocation({ lat, lng, address: currentValue });
           
           // Centrar mapa y añadir marcador
-          if (mapRef.current) {
+          if (mapRef.current && L) {
             mapRef.current.setView([lat, lng], 16);
             
             if (markerRef.current) {
@@ -313,7 +333,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery('');
     
     // Centrar mapa y añadir marcador
-    if (mapRef.current) {
+    if (mapRef.current && L) {
       mapRef.current.setView([lat, lng], 16);
       
       if (markerRef.current) {
@@ -350,7 +370,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         
         if (isLocationInArequipa(latitude, longitude)) {
           // Centrar mapa en ubicación actual
-          if (mapRef.current) {
+          if (mapRef.current && L) {
             mapRef.current.setView([latitude, longitude], 17);
             
             if (markerRef.current) {
@@ -379,7 +399,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             
             if (isLocationInArequipa(latitude, longitude)) {
               // Centrar mapa en ubicación actual
-              if (mapRef.current) {
+              if (mapRef.current && L) {
                 mapRef.current.setView([latitude, longitude], 17);
                 
                 if (markerRef.current) {
@@ -529,11 +549,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-3 sm:px-4 min-h-0">
-            <div 
-              ref={mapContainerRef}
-              className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2"
-              style={{ minHeight: '300px' }}
-            />
+            {!isMapLoaded ? (
+              <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">Cargando mapa...</p>
+                </div>
+              </div>
+            ) : (
+              <div 
+                ref={mapContainerRef}
+                className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2"
+                style={{ minHeight: '300px' }}
+              />
+            )}
           </div>
 
           {selectedLocation && (

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, MapPin, Phone, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Users, MapPin, Phone, Edit, Trash2 } from 'lucide-react';
 import ClienteForm from './ClienteForm';
 import { ClienteService } from '@/services/ClienteService';
 import { Cliente } from '@/lib/database';
@@ -102,7 +102,7 @@ const ClientesSection: React.FC = () => {
   };
 
   const handleViewLocation = (direccion: string) => {
-    // Crear URL para Google Maps
+    // Crear URL para Google Maps con la dirección exacta guardada
     const encodedAddress = encodeURIComponent(direccion);
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
     
@@ -111,7 +111,7 @@ const ClientesSection: React.FC = () => {
     
     toast({
       title: "Abriendo ubicación",
-      description: "Se está abriendo Google Maps con la dirección del cliente"
+      description: "Se está abriendo Google Maps con la dirección exacta del cliente"
     });
   };
 
@@ -236,9 +236,9 @@ const ClientesSection: React.FC = () => {
                           variant="outline" 
                           size="sm"
                           onClick={() => handleViewLocation(cliente.direccion)}
-                          title="Ver ubicación en Google Maps"
+                          title="Ver ubicación exacta en Google Maps"
                         >
-                          <Eye className="h-4 w-4" />
+                          <MapPin className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="outline" 

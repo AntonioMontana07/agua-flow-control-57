@@ -1,6 +1,10 @@
 
 import { Capacitor } from '@capacitor/core';
 
+interface PermissionStatus {
+  receive: 'prompt' | 'prompt-with-rationale' | 'granted' | 'denied';
+}
+
 export class NotificationService {
   static async initialize() {
     if (!Capacitor.isNativePlatform()) {
@@ -32,7 +36,7 @@ export class NotificationService {
         let permStatus = await Promise.race([
           PushNotifications.checkPermissions(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout check')), 3000))
-        ]);
+        ]) as PermissionStatus;
         console.log('Estado actual de permisos push:', permStatus);
         
         if (permStatus.receive === 'prompt') {
@@ -42,7 +46,7 @@ export class NotificationService {
             permStatus = await Promise.race([
               PushNotifications.requestPermissions(),
               new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout request')), 8000))
-            ]);
+            ]) as PermissionStatus;
             console.log('Resultado de solicitud de permisos:', permStatus);
           } catch (requestError) {
             console.log('Timeout o error en solicitud de permisos (continuando):', requestError);

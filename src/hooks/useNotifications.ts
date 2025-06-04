@@ -9,22 +9,32 @@ export const useNotifications = () => {
 
   useEffect(() => {
     const initializeNotifications = async () => {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          console.log('Inicializando sistema de notificaciones...');
-          const success = await NotificationService.initialize();
-          setIsInitialized(success);
-          if (!success) {
-            setError('No se pudieron configurar las notificaciones completamente');
-          }
-        } catch (error) {
-          console.error('Error crítico al inicializar notificaciones:', error);
-          setError('Error al configurar notificaciones');
-          setIsInitialized(false);
+      try {
+        console.log('Inicializando sistema de notificaciones...');
+        
+        // Siempre marcar como inicializado para no bloquear la app
+        setIsInitialized(true);
+        
+        if (Capacitor.isNativePlatform()) {
+          // Ejecutar la inicialización en background sin bloquear
+          NotificationService.initialize()
+            .then((success) => {
+              console.log('Notificaciones inicializadas:', success);
+              if (!success) {
+                console.log('Notificaciones no disponibles completamente, pero la app continuará');
+              }
+            })
+            .catch((error) => {
+              console.log('Error en inicialización de notificaciones (no crítico):', error);
+              // No cambiar el estado de error para no afectar la UI
+            });
+        } else {
+          console.log('Plataforma web - notificaciones no disponibles');
         }
-      } else {
-        console.log('Plataforma web - notificaciones no disponibles');
-        setIsInitialized(true); // En web consideramos que está "inicializado"
+      } catch (error) {
+        console.log('Error general en inicialización (continuando):', error);
+        // Mantener inicializado en true para no bloquear la app
+        setIsInitialized(true);
       }
     };
 
@@ -32,7 +42,7 @@ export const useNotifications = () => {
   }, []);
 
   const notificarStockBajo = async (producto: string, cantidad: number, minimo: number) => {
-    if (Capacitor.isNativePlatform() && isInitialized) {
+    if (Capacitor.isNativePlatform()) {
       try {
         await NotificationService.enviarNotificacionStock(producto, cantidad, minimo);
       } catch (error) {
@@ -42,7 +52,7 @@ export const useNotifications = () => {
   };
 
   const notificarNuevoPedido = async (cliente: string, producto: string, total: number) => {
-    if (Capacitor.isNativePlatform() && isInitialized) {
+    if (Capacitor.isNativePlatform()) {
       try {
         await NotificationService.enviarNotificacionPedido(cliente, producto, total);
       } catch (error) {
@@ -52,7 +62,7 @@ export const useNotifications = () => {
   };
 
   const notificarStockCritico = async (productos: Array<{nombre: string, cantidad: number, minimo: number}>) => {
-    if (Capacitor.isNativePlatform() && isInitialized) {
+    if (Capacitor.isNativePlatform()) {
       try {
         await NotificationService.enviarNotificacionStockCritico(productos);
       } catch (error) {

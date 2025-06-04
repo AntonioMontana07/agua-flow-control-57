@@ -5,7 +5,7 @@ export class NotificationService {
   static async initialize() {
     if (!Capacitor.isNativePlatform()) {
       console.log('Notificaciones no disponibles en web');
-      return false;
+      return true; // En web siempre devolvemos true
     }
 
     try {
@@ -15,46 +15,67 @@ export class NotificationService {
       
       console.log('Iniciando configuración de notificaciones...');
       
-      // Solicitar permisos para notificaciones locales con manejo de errores
+      // Manejo de notificaciones locales con timeout
       try {
-        const localPermissions = await LocalNotifications.requestPermissions();
+        const localPermissionPromise = LocalNotifications.requestPermissions();
+        const localPermissions = await Promise.race([
+          localPermissionPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
         console.log('Permisos de notificaciones locales:', localPermissions);
       } catch (localError) {
-        console.log('Error al solicitar permisos locales (continuando):', localError);
+        console.log('Error al solicitar permisos locales (continuando sin notificaciones locales):', localError);
       }
       
-      // Solicitar permisos para notificaciones push con manejo de errores
+      // Manejo de push notifications con timeout y sin bloquear la app
       try {
-        let permStatus = await PushNotifications.checkPermissions();
+        let permStatus = await Promise.race([
+          PushNotifications.checkPermissions(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout check')), 3000))
+        ]);
         console.log('Estado actual de permisos push:', permStatus);
         
         if (permStatus.receive === 'prompt') {
           console.log('Solicitando permisos push...');
-          permStatus = await PushNotifications.requestPermissions();
-          console.log('Resultado de solicitud de permisos:', permStatus);
+          // Usar timeout más corto y no esperar indefinidamente
+          try {
+            permStatus = await Promise.race([
+              PushNotifications.requestPermissions(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout request')), 8000))
+            ]);
+            console.log('Resultado de solicitud de permisos:', permStatus);
+          } catch (requestError) {
+            console.log('Timeout o error en solicitud de permisos (continuando):', requestError);
+            // Continuamos sin push notifications
+            return true;
+          }
         }
         
+        // Solo intentar registrar si tenemos permisos explícitos
         if (permStatus.receive === 'granted') {
-          // Solo registrar si los permisos están garantizados
           try {
-            await PushNotifications.register();
+            await Promise.race([
+              PushNotifications.register(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout register')), 3000))
+            ]);
             console.log('Registro para push notifications exitoso');
           } catch (registerError) {
             console.log('Error al registrar push notifications (no crítico):', registerError);
           }
         } else {
-          console.log('Permisos push no otorgados, continuando sin push notifications');
+          console.log('Permisos push no otorgados o denegados, continuando sin push notifications');
         }
       } catch (pushError) {
-        console.log('Error con push notifications (continuando):', pushError);
+        console.log('Error general con push notifications (continuando):', pushError);
       }
 
-      console.log('Configuración de notificaciones completada');
+      console.log('Configuración de notificaciones completada exitosamente');
       return true;
       
     } catch (error) {
-      console.error('Error general al inicializar notificaciones:', error);
-      return false;
+      console.error('Error general al inicializar notificaciones (continuando sin notificaciones):', error);
+      // Siempre devolvemos true para no bloquear la app
+      return true;
     }
   }
 

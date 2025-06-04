@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { X } from 'lucide-react';
 import { Cliente } from '@/lib/database';
-import GooglePlacesInput from '@/components/common/GooglePlacesInput';
+import LocationInput from '@/components/common/LocationInput';
 
 interface ClienteFormProps {
   cliente?: Cliente | null;
@@ -85,7 +84,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
 
           <div className="space-y-2">
             <Label htmlFor="direccion">Dirección *</Label>
-            <GooglePlacesInput
+            <LocationInput
               id="direccion"
               name="direccion"
               value={formData.direccion}
@@ -94,7 +93,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
               required
             />
             <p className="text-xs text-muted-foreground">
-              💡 Comienza a escribir para ver sugerencias de Google Maps
+              📍 Toca el ícono de ubicación para usar tu ubicación actual
             </p>
           </div>
 

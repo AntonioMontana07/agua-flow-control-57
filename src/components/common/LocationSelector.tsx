@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, X } from 'lucide-react';
+import { MapPin, Search, Loader2, X, Navigation } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface LocationSelectorProps {
@@ -19,6 +19,12 @@ interface SearchResult {
   lon: string;
 }
 
+interface MapLocation {
+  lat: number;
+  lng: number;
+  address: string;
+}
+
 const LocationSelector: React.FC<LocationSelectorProps> = ({
   isOpen,
   onClose,
@@ -29,54 +35,49 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-  const [apiKey, setApiKey] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
   const { toast } = useToast();
 
-  // Cargar Google Maps API
+  // Cargar Leaflet (OpenStreetMap)
   useEffect(() => {
-    if (isOpen && !googleMapsLoaded) {
-      const savedApiKey = localStorage.getItem('googleMapsApiKey');
-      if (savedApiKey) {
-        setApiKey(savedApiKey);
-        loadGoogleMaps(savedApiKey);
-      } else {
-        const userApiKey = prompt(
-          'Para usar el mapa interactivo, necesitas una API key de Google Maps.\n' +
-          'Puedes obtenerla en: https://console.cloud.google.com/\n' +
-          'Asegúrate de habilitar Maps JavaScript API y Places API.\n' +
-          'Ingresa tu API key de Google Maps:'
-        );
-        if (userApiKey) {
-          localStorage.setItem('googleMapsApiKey', userApiKey);
-          setApiKey(userApiKey);
-          loadGoogleMaps(userApiKey);
-        }
-      }
+    if (isOpen && !mapLoaded) {
+      loadLeafletMap();
     }
-  }, [isOpen, googleMapsLoaded]);
+  }, [isOpen, mapLoaded]);
 
-  const loadGoogleMaps = (key: string) => {
-    if (window.google && window.google.maps) {
-      setGoogleMapsLoaded(true);
+  const loadLeafletMap = () => {
+    // Verificar si Leaflet ya está cargado
+    if (window.L) {
+      setMapLoaded(true);
       initializeMap();
       return;
     }
 
+    // Cargar CSS de Leaflet
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    cssLink.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    cssLink.crossOrigin = '';
+    document.head.appendChild(cssLink);
+
+    // Cargar JavaScript de Leaflet
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&language=es&region=PE`;
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    script.crossOrigin = '';
     script.onload = () => {
-      setGoogleMapsLoaded(true);
-      initializeMap();
+      setMapLoaded(true);
+      setTimeout(initializeMap, 100); // Pequeño delay para asegurar que el DOM esté listo
     };
     script.onerror = () => {
       toast({
-        title: "Error al cargar Google Maps",
-        description: "Verifica que tu API key sea válida y tenga los permisos necesarios",
+        title: "Error al cargar el mapa",
+        description: "No se pudo cargar el componente del mapa",
         variant: "destructive"
       });
     };
@@ -84,74 +85,74 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const initializeMap = () => {
-    if (!mapRef.current || !window.google) return;
+    if (!mapRef.current || !window.L) return;
 
     // Coordenadas de Arequipa, Perú
-    const arequipaCenter = { lat: -16.409047, lng: -71.537451 };
+    const arequipaCenter = [-16.409047, -71.537451];
 
-    const map = new window.google.maps.Map(mapRef.current, {
-      zoom: 13,
-      center: arequipaCenter,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      styles: [
-        {
-          featureType: "poi",
-          elementType: "labels",
-          stylers: [{ visibility: "off" }]
-        }
-      ]
-    });
+    try {
+      const map = window.L.map(mapRef.current).setView(arequipaCenter, 13);
 
-    mapInstanceRef.current = map;
+      // Agregar capa de OpenStreetMap
+      window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
 
-    // Agregar marcador
-    const marker = new window.google.maps.Marker({
-      position: arequipaCenter,
-      map: map,
-      draggable: true,
-      title: "Seleccionar ubicación"
-    });
+      mapInstanceRef.current = map;
 
-    markerRef.current = marker;
+      // Agregar marcador
+      const marker = window.L.marker(arequipaCenter, {
+        draggable: true
+      }).addTo(map);
 
-    // Listener para cuando se arrastra el marcador
-    marker.addListener('dragend', () => {
-      const position = marker.getPosition();
-      if (position) {
-        const lat = position.lat();
-        const lng = position.lng();
+      markerRef.current = marker;
+
+      // Evento cuando se arrastra el marcador
+      marker.on('dragend', (e: any) => {
+        const position = e.target.getLatLng();
+        reverseGeocode(position.lat, position.lng);
+      });
+
+      // Evento click en el mapa
+      map.on('click', (e: any) => {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
         reverseGeocode(lat, lng);
-      }
-    });
+      });
 
-    // Listener para clicks en el mapa
-    map.addListener('click', (event: google.maps.MapMouseEvent) => {
-      if (event.latLng) {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
-        marker.setPosition(event.latLng);
-        reverseGeocode(lat, lng);
+      // Establecer ubicación inicial si hay una
+      if (selectedLocation) {
+        marker.setLatLng([selectedLocation.lat, selectedLocation.lng]);
+        map.setView([selectedLocation.lat, selectedLocation.lng], 16);
       }
-    });
+    } catch (error) {
+      console.error('Error inicializando mapa:', error);
+      toast({
+        title: "Error en el mapa",
+        description: "No se pudo inicializar el mapa correctamente",
+        variant: "destructive"
+      });
+    }
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
-    if (!window.google) return;
-
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode(
-      { location: { lat, lng } },
-      (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const address = results[0].formatted_address;
-          setSelectedLocation({ lat, lng, address });
-        } else {
-          setSelectedLocation({ lat, lng, address: `${lat}, ${lng}` });
-        }
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=es`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        setSelectedLocation({ lat, lng, address });
+      } else {
+        setSelectedLocation({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
       }
-    );
+    } catch (error) {
+      console.error('Error en geocodificación inversa:', error);
+      setSelectedLocation({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
+    }
   };
 
   const searchLocations = async () => {
@@ -161,7 +162,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     try {
       const query = `${searchQuery}, Arequipa, Peru`;
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=pe`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=pe&accept-language=es`
       );
       
       if (response.ok) {
@@ -184,11 +185,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
     
-    if (mapInstanceRef.current && markerRef.current) {
-      const position = { lat, lng };
-      mapInstanceRef.current.setCenter(position);
-      mapInstanceRef.current.setZoom(16);
-      markerRef.current.setPosition(position);
+    if (mapInstanceRef.current && markerRef.current && window.L) {
+      mapInstanceRef.current.setView([lat, lng], 16);
+      markerRef.current.setLatLng([lat, lng]);
     }
     
     setSelectedLocation({ lat, lng, address: result.display_name });
@@ -212,15 +211,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       (position) => {
         const { latitude, longitude } = position.coords;
         
-        if (mapInstanceRef.current && markerRef.current) {
-          const pos = { lat: latitude, lng: longitude };
-          mapInstanceRef.current.setCenter(pos);
-          mapInstanceRef.current.setZoom(16);
-          markerRef.current.setPosition(pos);
+        if (mapInstanceRef.current && markerRef.current && window.L) {
+          mapInstanceRef.current.setView([latitude, longitude], 16);
+          markerRef.current.setLatLng([latitude, longitude]);
         }
         
         reverseGeocode(latitude, longitude);
         setIsGettingLocation(false);
+        
+        toast({
+          title: "Ubicación obtenida",
+          description: "Tu ubicación actual ha sido detectada",
+        });
       },
       (error) => {
         console.error('Error getting location:', error);
@@ -229,7 +231,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         let errorMessage = "No se pudo obtener la ubicación";
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Permisos de ubicación denegados";
+            errorMessage = "Permisos de ubicación denegados. Por favor, permite el acceso a tu ubicación.";
             break;
           case error.POSITION_UNAVAILABLE:
             errorMessage = "Ubicación no disponible";
@@ -244,6 +246,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           description: errorMessage,
           variant: "destructive"
         });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
       }
     );
   };
@@ -303,12 +310,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 size="sm"
                 onClick={getCurrentLocation}
                 disabled={isGettingLocation}
+                className="gap-2"
               >
                 {isGettingLocation ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <MapPin className="h-4 w-4" />
+                  <Navigation className="h-4 w-4" />
                 )}
+                Mi ubicación
               </Button>
             </div>
           </div>
@@ -336,7 +345,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           {/* Map Container */}
           <div className="flex-1 px-4">
             <div className="relative w-full h-full bg-gray-200 rounded-lg overflow-hidden">
-              {googleMapsLoaded ? (
+              {mapLoaded ? (
                 <div ref={mapRef} className="w-full h-full" />
               ) : (
                 <div className="flex items-center justify-center h-full">
@@ -382,5 +391,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     </Dialog>
   );
 };
+
+// Declarar tipos para Leaflet
+declare global {
+  interface Window {
+    L: any;
+  }
+}
 
 export default LocationSelector;

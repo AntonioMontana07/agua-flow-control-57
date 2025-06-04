@@ -37,120 +37,170 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [isLoadingCurrentLocation, setIsLoadingCurrentLocation] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
-  // Cargar Leaflet cuando se abre el diálogo
+  // Limpiar timeout al desmontar
   useEffect(() => {
-    if (isOpen && !mapLoaded) {
+    return () => {
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Cargar Leaflet cuando se abre el diálogo (solo una vez)
+  useEffect(() => {
+    if (isOpen && !mapLoaded && !isInitializing) {
+      setIsInitializing(true);
       loadLeafletMap();
     }
-  }, [isOpen]);
+  }, [isOpen, mapLoaded, isInitializing]);
 
-  // Cargar ubicación actual cuando hay currentValue
+  // Cargar ubicación actual cuando hay currentValue y el mapa está listo
   useEffect(() => {
-    if (isOpen && currentValue && mapLoaded && !isLoadingCurrentLocation) {
+    if (isOpen && currentValue && mapLoaded && mapInstanceRef.current && !selectedLocation) {
       loadCurrentLocationFromAddress();
     }
-  }, [isOpen, currentValue, mapLoaded]);
+  }, [isOpen, currentValue, mapLoaded, selectedLocation]);
 
   const loadCurrentLocationFromAddress = async () => {
-    if (!currentValue?.trim()) return;
+    if (!currentValue?.trim() || !mapInstanceRef.current) return;
     
-    setIsLoadingCurrentLocation(true);
     try {
-      // Intentar geocodificar la dirección actual
-      const query = `${currentValue}, Arequipa, Peru`;
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1&countrycodes=pe&accept-language=es`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.length > 0) {
-          const result = data[0];
-          const lat = parseFloat(result.lat);
-          const lng = parseFloat(result.lon);
-          
-          if (mapInstanceRef.current && markerRef.current && window.L) {
-            mapInstanceRef.current.setView([lat, lng], 16);
-            markerRef.current.setLatLng([lat, lng]);
+      console.log('Geocodificando dirección actual:', currentValue);
+      // Buscar con mayor precisión incluyendo Perú y Arequipa
+      const queries = [
+        `${currentValue}, Arequipa, Perú`,
+        `${currentValue}, Arequipa, Peru`,
+        `${currentValue}, Peru`
+      ];
+
+      for (const query of queries) {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1&countrycodes=pe&accept-language=es&bounded=1&viewbox=-71.8,-16.2,-71.2,-16.6`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            const result = data[0];
+            const lat = parseFloat(result.lat);
+            const lng = parseFloat(result.lon);
+            
+            console.log('Ubicación encontrada:', lat, lng);
+            
+            if (mapInstanceRef.current && markerRef.current && window.L) {
+              mapInstanceRef.current.setView([lat, lng], 16);
+              markerRef.current.setLatLng([lat, lng]);
+            }
+            
+            setSelectedLocation({ lat, lng, address: currentValue });
+            break;
           }
-          
-          setSelectedLocation({ lat, lng, address: currentValue });
         }
       }
     } catch (error) {
       console.error('Error al geocodificar dirección actual:', error);
-    } finally {
-      setIsLoadingCurrentLocation(false);
     }
   };
 
   const loadLeafletMap = () => {
     // Verificar si Leaflet ya está cargado
-    if (window.L) {
+    if (window.L && !mapInstanceRef.current) {
+      console.log('Leaflet ya está cargado, inicializando mapa...');
       setMapLoaded(true);
-      setTimeout(initializeMap, 50);
+      initTimeoutRef.current = setTimeout(initializeMap, 100);
       return;
     }
 
-    // Cargar CSS de Leaflet
-    const cssLink = document.createElement('link');
-    cssLink.rel = 'stylesheet';
-    cssLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    cssLink.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-    cssLink.crossOrigin = '';
-    document.head.appendChild(cssLink);
-
-    // Cargar JavaScript de Leaflet
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-    script.crossOrigin = '';
-    script.onload = () => {
+    if (window.L && mapInstanceRef.current) {
+      console.log('Mapa ya inicializado');
       setMapLoaded(true);
-      setTimeout(initializeMap, 50);
-    };
-    script.onerror = () => {
-      toast({
-        title: "Error al cargar el mapa",
-        description: "No se pudo cargar el componente del mapa",
-        variant: "destructive"
-      });
-    };
-    document.head.appendChild(script);
+      setIsInitializing(false);
+      return;
+    }
+
+    console.log('Cargando Leaflet...');
+
+    // Cargar CSS de Leaflet si no existe
+    if (!document.querySelector('link[href*="leaflet.css"]')) {
+      const cssLink = document.createElement('link');
+      cssLink.rel = 'stylesheet';
+      cssLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      cssLink.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+      cssLink.crossOrigin = '';
+      document.head.appendChild(cssLink);
+    }
+
+    // Cargar JavaScript de Leaflet si no existe
+    if (!document.querySelector('script[src*="leaflet.js"]')) {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+      script.crossOrigin = '';
+      script.onload = () => {
+        console.log('Leaflet cargado exitosamente');
+        setMapLoaded(true);
+        initTimeoutRef.current = setTimeout(initializeMap, 100);
+      };
+      script.onerror = () => {
+        console.error('Error al cargar Leaflet');
+        setIsInitializing(false);
+        toast({
+          title: "Error al cargar el mapa",
+          description: "No se pudo cargar el componente del mapa",
+          variant: "destructive"
+        });
+      };
+      document.head.appendChild(script);
+    }
   };
 
   const initializeMap = () => {
-    if (!mapRef.current || !window.L || mapInstanceRef.current) return;
+    if (!mapRef.current || !window.L || mapInstanceRef.current) {
+      console.log('No se puede inicializar el mapa:', {
+        hasMapRef: !!mapRef.current,
+        hasLeaflet: !!window.L,
+        hasMapInstance: !!mapInstanceRef.current
+      });
+      setIsInitializing(false);
+      return;
+    }
 
     try {
-      // Coordenadas de Arequipa, Perú
+      console.log('Inicializando mapa...');
+      
+      // Coordenadas del centro de Arequipa, Perú
       const arequipaCenter: [number, number] = [-16.409047, -71.537451];
 
       const map = window.L.map(mapRef.current, {
         preferCanvas: true,
-        zoomControl: true
+        zoomControl: true,
+        maxZoom: 19,
+        minZoom: 10
       }).setView(arequipaCenter, 13);
 
-      // Agregar capa de OpenStreetMap con mejor rendimiento
+      // Agregar capa de OpenStreetMap optimizada
       window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap contributors',
         detectRetina: true,
-        updateWhenIdle: false,
-        keepBuffer: 2
+        updateWhenIdle: true,
+        keepBuffer: 4,
+        maxNativeZoom: 18
       }).addTo(map);
 
       mapInstanceRef.current = map;
 
-      // Agregar marcador
+      // Agregar marcador arrastrable
       const marker = window.L.marker(arequipaCenter, {
-        draggable: true
+        draggable: true,
+        riseOnHover: true
       }).addTo(map);
 
       markerRef.current = marker;
@@ -168,9 +218,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         reverseGeocode(lat, lng);
       });
 
+      // Evento cuando el mapa termina de cargar
+      map.whenReady(() => {
+        console.log('Mapa listo');
+        setIsInitializing(false);
+        map.invalidateSize();
+      });
+
       console.log('Mapa inicializado correctamente');
     } catch (error) {
       console.error('Error inicializando mapa:', error);
+      setIsInitializing(false);
       toast({
         title: "Error en el mapa",
         description: "No se pudo inicializar el mapa correctamente",
@@ -181,13 +239,37 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
+      console.log('Geocodificación inversa para:', lat, lng);
+      
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=es`
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=es&zoom=18`
       );
       
       if (response.ok) {
         const data = await response.json();
-        const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        
+        // Construir dirección más precisa
+        let address = '';
+        if (data.address) {
+          const parts = [];
+          if (data.address.house_number && data.address.road) {
+            parts.push(`${data.address.road} ${data.address.house_number}`);
+          } else if (data.address.road) {
+            parts.push(data.address.road);
+          }
+          if (data.address.neighbourhood || data.address.suburb) {
+            parts.push(data.address.neighbourhood || data.address.suburb);
+          }
+          if (data.address.city_district || data.address.city) {
+            parts.push(data.address.city_district || data.address.city);
+          }
+          
+          address = parts.length > 0 ? parts.join(', ') : data.display_name;
+        } else {
+          address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+        
+        console.log('Dirección encontrada:', address);
         setSelectedLocation({ lat, lng, address });
       } else {
         setSelectedLocation({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
@@ -203,13 +285,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
     setIsSearching(true);
     try {
-      const query = `${searchQuery}, Arequipa, Peru`;
+      console.log('Buscando:', searchQuery);
+      
+      // Buscar con mayor precisión en Arequipa
+      const query = `${searchQuery}, Arequipa, Perú`;
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=pe&accept-language=es`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1&countrycodes=pe&accept-language=es&bounded=1&viewbox=-71.8,-16.2,-71.2,-16.6&extratags=1`
       );
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Resultados de búsqueda:', data.length);
         setSearchResults(data);
       }
     } catch (error) {
@@ -228,8 +314,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
     
+    console.log('Seleccionando resultado:', lat, lng);
+    
     if (mapInstanceRef.current && markerRef.current && window.L) {
-      mapInstanceRef.current.setView([lat, lng], 16);
+      mapInstanceRef.current.setView([lat, lng], 17);
       markerRef.current.setLatLng([lat, lng]);
     }
     
@@ -253,9 +341,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+        console.log('Ubicación actual obtenida:', latitude, longitude);
         
         if (mapInstanceRef.current && markerRef.current && window.L) {
-          mapInstanceRef.current.setView([latitude, longitude], 16);
+          mapInstanceRef.current.setView([latitude, longitude], 17);
           markerRef.current.setLatLng([latitude, longitude]);
         }
         
@@ -292,8 +381,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
+        timeout: 15000,
+        maximumAge: 300000
       }
     );
   };
@@ -314,9 +403,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery('');
     setSearchResults([]);
     setSelectedLocation(null);
-    setIsLoadingCurrentLocation(false);
     onClose();
   };
+
+  // Invalidar el tamaño del mapa cuando se abre el diálogo
+  useEffect(() => {
+    if (isOpen && mapInstanceRef.current && mapLoaded && !isInitializing) {
+      const timer = setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, mapLoaded, isInitializing]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -397,12 +495,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           {/* Map Container */}
           <div className="flex-1 px-4">
             <div className="relative w-full h-full bg-gray-200 rounded-lg overflow-hidden">
-              {!mapLoaded || isLoadingCurrentLocation ? (
+              {!mapLoaded || isInitializing ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      {isLoadingCurrentLocation ? 'Cargando ubicación actual...' : 'Cargando mapa...'}
+                      {isInitializing ? 'Inicializando mapa...' : 'Cargando mapa...'}
                     </p>
                   </div>
                 </div>

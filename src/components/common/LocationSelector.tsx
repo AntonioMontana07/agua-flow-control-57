@@ -29,7 +29,7 @@ interface MapLocation {
 }
 
 // Token de Mapbox integrado
-const MAPBOX_TOKEN = 'pk.eyJ1Ijoib2xpdmVyYXZlbjA1IiwiYSI6ImNtYm1vY2ZnZzFkcHoybXB6cnh1cjUwOTIifQ.6msn-8p6pZHC_R_wdBpjLw';
+const MAPBOX_TOKEN = 'sk.eyJ1Ijoib2xpdmVyYXZlbjA1IiwiYSI6ImNtYm1ydHZ6eTFobHAybHB5MGU5MHd0NGUifQ.gjrRqYdjVqs-SmJyfe9ffw';
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
   isOpen,

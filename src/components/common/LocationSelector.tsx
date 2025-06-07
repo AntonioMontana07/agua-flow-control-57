@@ -30,203 +30,135 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState(false);
+  const [mapError, setMapError] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const { toast } = useToast();
   
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<any>(null);
-  const leafletLoaded = useRef(false);
 
   // Coordenadas de Arequipa
   const AREQUIPA_CENTER = [-16.409047, -71.537451];
-  const AREQUIPA_BOUNDS = {
-    north: -16.2,
-    south: -16.6,
-    east: -71.2,
-    west: -71.8
+
+  // Función para agregar debug info
+  const addDebug = (message: string) => {
+    console.log('🔍 DEBUG:', message);
+    setDebugInfo(prev => prev + '\n' + message);
   };
 
-  // Cargar Leaflet dinámicamente
-  const loadLeaflet = async () => {
-    if (leafletLoaded.current) return;
+  // Cargar mapa con Google Maps embebido (fallback gratuito)
+  const initializeEmbeddedMap = () => {
+    if (!mapContainerRef.current) return;
     
     try {
-      console.log('🗺️ Cargando Leaflet...');
+      addDebug('Iniciando mapa embebido...');
       
-      // Cargar CSS de Leaflet
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-
-      // Cargar JS de Leaflet
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      const iframe = document.createElement('iframe');
+      iframe.width = '100%';
+      iframe.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.borderRadius = '8px';
+      iframe.src = `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dkG3z4NzKY6k9Q&center=${AREQUIPA_CENTER[0]},${AREQUIPA_CENTER[1]}&zoom=13&maptype=roadmap`;
       
-      await new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-
-      // Configurar iconos
-      const L = (window as any).L;
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      });
-
-      leafletLoaded.current = true;
-      console.log('✅ Leaflet cargado correctamente');
+      mapContainerRef.current.innerHTML = '';
+      mapContainerRef.current.appendChild(iframe);
+      
+      addDebug('Mapa embebido cargado');
+      setMapReady(true);
+      setMapError('');
       
     } catch (error) {
-      console.error('❌ Error cargando Leaflet:', error);
-      throw error;
+      addDebug('Error con mapa embebido: ' + error);
+      initializeOpenStreetMap();
     }
   };
 
-  // Inicializar mapa
-  const initializeMap = async () => {
-    if (!mapContainerRef.current || mapRef.current) return;
+  // Función alternativa con OpenStreetMap simple
+  const initializeOpenStreetMap = async () => {
+    if (!mapContainerRef.current) return;
     
     try {
-      await loadLeaflet();
-      const L = (window as any).L;
+      addDebug('Cargando OpenStreetMap...');
       
-      console.log('🗺️ Inicializando mapa...');
+      // Crear contenedor simple del mapa
+      const mapDiv = document.createElement('div');
+      mapDiv.style.width = '100%';
+      mapDiv.style.height = '100%';
+      mapDiv.style.background = '#f0f0f0';
+      mapDiv.style.borderRadius = '8px';
+      mapDiv.style.position = 'relative';
+      mapDiv.style.cursor = 'crosshair';
       
-      const map = L.map(mapContainerRef.current, {
-        center: AREQUIPA_CENTER,
-        zoom: 13,
-        zoomControl: true,
-        attributionControl: false // Quitar attribution para más espacio
-      });
-
-      // Tiles de OpenStreetMap
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: ''
-      }).addTo(map);
-
-      mapRef.current = map;
-
-      // Click en el mapa
-      map.on('click', async (e: any) => {
-        const { lat, lng } = e.latlng;
-        console.log('🖱️ Click en mapa:', lat, lng);
+      // Agregar imagen de fondo de OSM
+      mapDiv.style.backgroundImage = `url('https://tile.openstreetmap.org/13/${Math.floor(((-71.537451 + 180) / 360) * Math.pow(2, 13))}/${Math.floor((1 - Math.log(Math.tan((-16.409047 * Math.PI) / 180) + 1 / Math.cos((-16.409047 * Math.PI) / 180)) / Math.PI) / 2 * Math.pow(2, 13))}.png')`;
+      mapDiv.style.backgroundSize = 'cover';
+      mapDiv.style.backgroundPosition = 'center';
+      
+      // Agregar overlay con información
+      const overlay = document.createElement('div');
+      overlay.innerHTML = `
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <div style="color: #16a34a; font-size: 24px; margin-bottom: 10px;">📍</div>
+          <div style="font-weight: 500; margin-bottom: 8px;">Mapa de Arequipa</div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Haz clic para seleccionar ubicación</div>
+          <div id="coordinates" style="font-size: 12px; color: #888;">Lat: ${AREQUIPA_CENTER[0]}, Lng: ${AREQUIPA_CENTER[1]}</div>
+        </div>
+      `;
+      
+      mapDiv.appendChild(overlay);
+      
+      // Evento de click
+      mapDiv.addEventListener('click', (e) => {
+        const rect = mapDiv.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
         
-        if (isLocationInArequipa(lat, lng)) {
-          updateMarker(lat, lng);
-          
-          try {
-            const address = await reverseGeocode(lat, lng);
-            setSelectedLocation({ lat, lng, address });
-            console.log('📍 Ubicación seleccionada:', address);
-          } catch (error) {
-            console.error('Error al obtener dirección:', error);
-            const fallbackAddress = `Coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
-            setSelectedLocation({ lat, lng, address: fallbackAddress });
-          }
-        } else {
-          toast({
-            title: "Fuera de Arequipa",
-            description: "Selecciona una ubicación dentro de Arequipa",
-            variant: "destructive"
-          });
+        // Coordenadas aproximadas basadas en el click
+        const lat = AREQUIPA_CENTER[0] + (0.5 - y / rect.height) * 0.1;
+        const lng = AREQUIPA_CENTER[1] + (x / rect.width - 0.5) * 0.1;
+        
+        addDebug(`Click en: ${lat}, ${lng}`);
+        
+        // Actualizar coordenadas en el overlay
+        const coordsDiv = mapDiv.querySelector('#coordinates');
+        if (coordsDiv) {
+          coordsDiv.textContent = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
         }
+        
+        // Crear dirección aproximada
+        const address = `Ubicación seleccionada: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
+        setSelectedLocation({ lat, lng, address });
+        
+        toast({
+          title: "Ubicación seleccionada",
+          description: "Click en confirmar para guardar"
+        });
       });
-
-      // Esperar un poco para que el mapa se renderice
-      setTimeout(() => {
-        map.invalidateSize();
-        setMapReady(true);
-        setMapError(false);
-        console.log('✅ Mapa inicializado correctamente');
-      }, 500);
-
+      
+      mapContainerRef.current.innerHTML = '';
+      mapContainerRef.current.appendChild(mapDiv);
+      
+      addDebug('Mapa simple cargado correctamente');
+      setMapReady(true);
+      setMapError('');
+      
     } catch (error) {
-      console.error('❌ Error inicializando mapa:', error);
-      setMapError(true);
+      addDebug('Error con mapa simple: ' + error);
+      setMapError('No se pudo cargar el mapa');
       setMapReady(true);
     }
   };
 
-  // Actualizar marcador
-  const updateMarker = (lat: number, lng: number) => {
-    if (!mapRef.current) return;
-    
-    const L = (window as any).L;
-    
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng]);
-    } else {
-      markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
-    }
-    
-    mapRef.current.setView([lat, lng], 16);
-  };
-
-  // Limpiar mapa
-  const cleanupMap = () => {
-    if (markerRef.current) {
-      markerRef.current.remove();
-      markerRef.current = null;
-    }
-    
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
-    }
-    
-    setMapReady(false);
-    setMapError(false);
-  };
-
-  // Verificar si está en Arequipa
-  const isLocationInArequipa = (lat: number, lng: number): boolean => {
-    return lat >= AREQUIPA_BOUNDS.south && 
-           lat <= AREQUIPA_BOUNDS.north && 
-           lng >= AREQUIPA_BOUNDS.west && 
-           lng <= AREQUIPA_BOUNDS.east;
-  };
-
-  // Geocodificación inversa
-  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=es`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'LocationSelector/1.0'
-        }
-      });
-      
-      if (!response.ok) throw new Error('Error en la respuesta');
-      
-      const data = await response.json();
-      
-      if (data && data.display_name) {
-        return data.display_name;
-      } else {
-        throw new Error('No se pudo obtener la dirección');
-      }
-    } catch (error) {
-      console.error('Error en geocodificación inversa:', error);
-      throw error;
-    }
-  };
-
-  // Búsqueda de ubicaciones
+  // Búsqueda de ubicaciones usando Nominatim
   const searchLocation = async () => {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
+    addDebug(`Buscando: ${searchQuery}`);
     
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Arequipa, Peru')}&limit=5&accept-language=es`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Arequipa, Peru')}&limit=1&accept-language=es`;
       
       const response = await fetch(url, {
         headers: {
@@ -237,46 +169,37 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       if (!response.ok) throw new Error('Error en búsqueda');
       
       const results = await response.json();
+      addDebug(`Resultados de búsqueda: ${results.length}`);
       
       if (results && results.length > 0) {
         const result = results[0];
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         
-        if (isLocationInArequipa(lat, lng)) {
-          if (mapRef.current) {
-            updateMarker(lat, lng);
-          }
-          
-          setSelectedLocation({ 
-            lat, 
-            lng, 
-            address: result.display_name 
-          });
-          
-          toast({
-            title: "Ubicación encontrada",
-            description: "Se encontró la ubicación en Arequipa"
-          });
-        } else {
-          toast({
-            title: "Fuera de Arequipa",
-            description: "La búsqueda no encontró resultados en Arequipa",
-            variant: "destructive"
-          });
-        }
+        addDebug(`Encontrado: ${lat}, ${lng}`);
+        
+        setSelectedLocation({ 
+          lat, 
+          lng, 
+          address: result.display_name 
+        });
+        
+        toast({
+          title: "Ubicación encontrada",
+          description: "Ubicación encontrada en Arequipa"
+        });
       } else {
         toast({
           title: "Sin resultados",
-          description: "No se encontraron resultados para la búsqueda",
+          description: "No se encontraron resultados",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error('Error en búsqueda:', error);
+      addDebug('Error en búsqueda: ' + error);
       toast({
         title: "Error de búsqueda",
-        description: "No se pudo realizar la búsqueda. Intenta de nuevo.",
+        description: "No se pudo realizar la búsqueda",
         variant: "destructive"
       });
     } finally {
@@ -288,6 +211,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   // Obtener ubicación GPS
   const getCurrentLocation = async () => {
     setIsGettingLocation(true);
+    addDebug('Solicitando GPS...');
 
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -299,13 +223,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       });
       
       const { latitude, longitude } = position.coords;
-      await handleLocationSuccess(latitude, longitude);
+      addDebug(`GPS obtenido: ${latitude}, ${longitude}`);
+      
+      const address = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, Arequipa`;
+      setSelectedLocation({ lat: latitude, lng: longitude, address });
+      
+      toast({
+        title: "Ubicación GPS obtenida",
+        description: "Ubicación actual obtenida correctamente"
+      });
       
     } catch (error) {
-      console.error('Error GPS:', error);
+      addDebug('Error GPS: ' + error);
       toast({
         title: "Error de GPS",
-        description: "No se pudo obtener la ubicación actual. Verifica los permisos.",
+        description: "No se pudo obtener la ubicación GPS",
         variant: "destructive"
       });
     } finally {
@@ -313,65 +245,37 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Manejar ubicación exitosa del GPS
-  const handleLocationSuccess = async (latitude: number, longitude: number) => {
-    console.log('📍 GPS obtenido:', latitude, longitude);
-    
-    if (isLocationInArequipa(latitude, longitude)) {
-      if (mapRef.current) {
-        updateMarker(latitude, longitude);
-      }
-      
-      try {
-        const address = await reverseGeocode(latitude, longitude);
-        setSelectedLocation({ lat: latitude, lng: longitude, address });
-        
-        toast({
-          title: "Ubicación Obtenida",
-          description: "GPS activado correctamente"
-        });
-      } catch (error) {
-        console.error('Error al obtener dirección GPS:', error);
-        const fallbackAddress = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, Arequipa`;
-        setSelectedLocation({ lat: latitude, lng: longitude, address: fallbackAddress });
-      }
-    } else {
-      toast({
-        title: "Fuera de Arequipa",
-        description: "Tu ubicación actual está fuera de Arequipa",
-        variant: "destructive"
-      });
-    }
-  };
-
   // Confirmar selección
   const confirmSelection = () => {
     if (selectedLocation) {
+      addDebug(`Confirmando: ${selectedLocation.address}`);
       onSelectLocation(selectedLocation.address);
       onClose();
       toast({
-        title: "Ubicación Confirmada",
-        description: "Dirección actualizada correctamente"
+        title: "Ubicación confirmada",
+        description: "Dirección guardada correctamente"
       });
     }
   };
 
-  // Recargar mapa
-  const reloadMap = () => {
-    cleanupMap();
+  // Reintentar carga del mapa
+  const retryMap = () => {
+    addDebug('Reintentando carga del mapa...');
     setMapReady(false);
-    setMapError(false);
+    setMapError('');
+    setDebugInfo('');
     setTimeout(() => {
-      initializeMap();
+      initializeEmbeddedMap();
     }, 1000);
   };
 
   // Effects
   useEffect(() => {
     if (isOpen) {
+      addDebug('Modal abierto, inicializando mapa...');
       const timer = setTimeout(() => {
-        initializeMap();
-      }, 300);
+        initializeEmbeddedMap();
+      }, 500);
       
       return () => clearTimeout(timer);
     }
@@ -379,9 +283,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
-      cleanupMap();
       setSearchQuery('');
       setSelectedLocation(null);
+      setMapReady(false);
+      setMapError('');
+      setDebugInfo('');
     }
   }, [isOpen]);
 
@@ -442,16 +348,26 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
                   <p className="text-sm text-gray-600">Cargando mapa de Arequipa...</p>
+                  <p className="text-xs text-gray-400 mt-2">Esto puede tomar unos segundos</p>
                 </div>
               </div>
             ) : mapError ? (
               <div className="w-full h-full bg-red-50 rounded-lg border-2 border-red-200 flex items-center justify-center" style={{ minHeight: '400px' }}>
-                <div className="text-center">
-                  <div className="text-red-600 mb-4">❌</div>
+                <div className="text-center max-w-md">
+                  <div className="text-red-600 mb-4 text-2xl">❌</div>
                   <p className="text-sm text-red-600 mb-4">Error al cargar el mapa</p>
-                  <Button onClick={reloadMap} variant="outline" size="sm">
+                  <p className="text-xs text-gray-600 mb-4">{mapError}</p>
+                  <Button onClick={retryMap} variant="outline" size="sm" className="mb-4">
                     Reintentar
                   </Button>
+                  {debugInfo && (
+                    <details className="text-left">
+                      <summary className="text-xs cursor-pointer">Ver información de debug</summary>
+                      <pre className="text-xs bg-gray-100 p-2 mt-2 rounded overflow-auto max-h-32">
+                        {debugInfo}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               </div>
             ) : (

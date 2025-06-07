@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   bundledWebRuntime: false,
   // server: {
-  //   url: "https://0d052641-7b9a-4737-8f01-403a821e2261.lovableproject.com?forceHideBadge=true",
+  //   url: "https://293fbde2-eb7e-436a-b129-0340718369ba.lovableproject.com?forceHideBadge=true",
   //   cleartext: true
   // },
   plugins: {
@@ -24,12 +24,23 @@ const config: CapacitorConfig = {
   },
   android: {
     permissions: [
+      // Permisos básicos
+      "android.permission.INTERNET",
+      
+      // Permisos de ubicación
       "android.permission.ACCESS_COARSE_LOCATION",
       "android.permission.ACCESS_FINE_LOCATION",
       "android.permission.ACCESS_BACKGROUND_LOCATION",
+      
+      // Permisos de notificaciones
       "android.permission.POST_NOTIFICATIONS",
       "android.permission.WAKE_LOCK",
-      "android.permission.RECEIVE_BOOT_COMPLETED"
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      
+      // Permisos adicionales para mejor funcionamiento
+      "android.permission.ACCESS_WIFI_STATE",
+      "android.permission.ACCESS_NETWORK_STATE",
+      "android.permission.VIBRATE"
     ]
   },
   ios: {
@@ -37,7 +48,7 @@ const config: CapacitorConfig = {
       "NSLocationWhenInUseUsageDescription",
       "NSLocationAlwaysAndWhenInUseUsageDescription"
     ]
-  ]
+  }
 };
 
 export default config;

@@ -1,19 +1,31 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import Sidebar from '@/components/layout/Sidebar';
-import ResumenSection from '@/components/dashboard/ResumenSection';
-import InventarioSection from '@/components/dashboard/InventarioSection';
-import PedidosSection from '@/components/dashboard/PedidosSection';
-import ComprasSection from '@/components/dashboard/ComprasSection';
-import GastosSection from '@/components/dashboard/GastosSection';
-import VentasSection from '@/components/dashboard/VentasSection';
-import ClientesSection from '@/components/dashboard/ClientesSection';
-import ReportesSection from '@/components/dashboard/ReportesSection';
 import InventoryAlerts from '@/components/dashboard/InventoryAlerts';
 import { useDatabase } from '@/hooks/useDatabase';
 import { useNotifications } from '@/hooks/useNotifications';
 import { ProductoService } from '@/services/ProductoService';
+
+// Lazy load components only when needed
+const LazyResumenSection = lazy(() => import('@/components/dashboard/ResumenSection'));
+const LazyInventarioSection = lazy(() => import('@/components/dashboard/InventarioSection'));
+const LazyPedidosSection = lazy(() => import('@/components/dashboard/PedidosSection'));
+const LazyComprasSection = lazy(() => import('@/components/dashboard/ComprasSection'));
+const LazyGastosSection = lazy(() => import('@/components/dashboard/GastosSection'));
+const LazyVentasSection = lazy(() => import('@/components/dashboard/VentasSection'));
+const LazyClientesSection = lazy(() => import('@/components/dashboard/ClientesSection'));
+const LazyReportesSection = lazy(() => import('@/components/dashboard/ReportesSection'));
+
+const SectionLoader = () => (
+  <div className="flex items-center justify-center p-8">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+      <p className="text-sm text-muted-foreground">Cargando sección...</p>
+    </div>
+  </div>
+);
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -62,26 +74,32 @@ const Dashboard: React.FC = () => {
   }
 
   const renderContent = () => {
-    switch (activeSection) {
-      case 'resumen':
-        return <ResumenSection />;
-      case 'inventario':
-        return <InventarioSection />;
-      case 'pedidos':
-        return <PedidosSection />;
-      case 'compras':
-        return <ComprasSection />;
-      case 'gastos':
-        return <GastosSection />;
-      case 'ventas':
-        return <VentasSection />;
-      case 'clientes':
-        return <ClientesSection />;
-      case 'reportes':
-        return <ReportesSection />;
-      default:
-        return <ResumenSection />;
-    }
+    return (
+      <Suspense fallback={<SectionLoader />}>
+        {(() => {
+          switch (activeSection) {
+            case 'resumen':
+              return <LazyResumenSection />;
+            case 'inventario':
+              return <LazyInventarioSection />;
+            case 'pedidos':
+              return <LazyPedidosSection />;
+            case 'compras':
+              return <LazyComprasSection />;
+            case 'gastos':
+              return <LazyGastosSection />;
+            case 'ventas':
+              return <LazyVentasSection />;
+            case 'clientes':
+              return <LazyClientesSection />;
+            case 'reportes':
+              return <LazyReportesSection />;
+            default:
+              return <LazyResumenSection />;
+          }
+        })()}
+      </Suspense>
+    );
   };
 
   const productosProblematicos = productos.filter(p => p.estado === 'Crítico' || p.estado === 'Bajo');

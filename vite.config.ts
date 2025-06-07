@@ -51,20 +51,24 @@ export default defineConfig(({ mode }) => ({
           // Bibliotecas específicas de funcionalidad
           'features-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
           
-          // Componentes de dashboard
-          'dashboard': [
-            './src/components/dashboard/ResumenSection',
-            './src/components/dashboard/InventarioSection',
-            './src/components/dashboard/VentasSection',
-            './src/components/dashboard/ComprasSection',
-            './src/components/dashboard/PedidosSection',
-            './src/components/dashboard/ClientesSection',
-            './src/components/dashboard/GastosSection',
-            './src/components/dashboard/ReportesSection'
+          // Capacitor y plugins móviles
+          'mobile-vendor': ['@capacitor/core', '@capacitor/geolocation', '@capacitor/local-notifications'],
+          
+          // Servicios y hooks
+          'services': [
+            './src/services/ProductoService',
+            './src/services/ClienteService',
+            './src/services/VentaService',
+            './src/services/CompraService',
+            './src/services/PedidoService',
+            './src/services/GastoService',
+            './src/services/NotificationService',
+            './src/services/MobilePermissionsService',
+            './src/services/ScheduledNotificationService'
           ]
         }
       }
     },
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 500
   }
 }));

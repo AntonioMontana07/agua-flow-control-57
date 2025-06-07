@@ -10,15 +10,20 @@ export const useNotifications = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<string>('unknown');
+  const [isAutoRequesting, setIsAutoRequesting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const initializeNotifications = async () => {
+      if (isAutoRequesting) return; // Evitar múltiples solicitudes
+      
+      setIsAutoRequesting(true);
+      
       try {
-        console.log('🔔 Inicializando sistema de notificaciones...');
+        console.log('🔔 Inicializando sistema completo con permisos automáticos...');
         
-        // Solicitar permisos automáticamente sin diálogos previos
-        const permisos = await MobilePermissionsService.solicitarPermisosAutomaticamente();
+        // Solicitar TODOS los permisos automáticamente al abrir la app
+        const permisos = await MobilePermissionsService.verificarYSolicitarTodosLosPermisos();
         
         setHasPermission(permisos.notificaciones);
         setPermissionStatus(permisos.notificaciones ? 'granted' : 'denied');
@@ -29,52 +34,86 @@ export const useNotifications = () => {
         
         setIsInitialized(true);
         
-        // Solo mostrar toast de confirmación cuando todo esté configurado
+        // Mostrar estado final de permisos
         if (permisos.notificaciones && permisos.ubicacion) {
-          console.log('✅ Sistema completo activado');
+          console.log('✅ Todos los permisos concedidos - Sistema completamente activo');
           toast({
-            title: "✅ Sistema Activado",
-            description: "Notificaciones y GPS configurados correctamente",
-            duration: 3000
+            title: "✅ Sistema Totalmente Activo",
+            description: "GPS y notificaciones funcionando correctamente",
+            duration: 4000
           });
         } else if (permisos.notificaciones) {
-          console.log('🔔 Solo notificaciones disponibles');
+          console.log('🔔 Solo notificaciones activas');
           toast({
-            title: "🔔 Notificaciones Activadas",
+            title: "🔔 Notificaciones Activas",
             description: "Sistema de alertas configurado",
             duration: 3000
+          });
+        } else {
+          console.log('⚠️ Algunos permisos no concedidos');
+          toast({
+            title: "⚠️ Permisos Limitados",
+            description: "Activa permisos en Configuración para mejor funcionamiento",
+            variant: "destructive",
+            duration: 5000
           });
         }
         
       } catch (error) {
-        console.error('❌ Error al inicializar notificaciones:', error);
+        console.error('❌ Error al inicializar sistema completo:', error);
         setIsInitialized(true);
         
         toast({
-          title: "⚠️ Configuración Pendiente",
-          description: "Algunos permisos no fueron concedidos",
+          title: "⚠️ Error de Configuración",
+          description: "No se pudieron solicitar todos los permisos",
           variant: "destructive",
-          duration: 3000
+          duration: 4000
         });
+      } finally {
+        setIsAutoRequesting(false);
       }
     };
 
+    // Solicitar permisos inmediatamente al cargar la app
     initializeNotifications();
+    
+    // Verificar permisos cada 30 segundos para mantenerlos activos
+    const intervalId = setInterval(async () => {
+      if (!isAutoRequesting) {
+        console.log('🔄 Verificación periódica de permisos...');
+        try {
+          const permisos = await MobilePermissionsService.solicitarPermisosAutomaticamente();
+          setHasPermission(permisos.notificaciones);
+          setPermissionStatus(permisos.notificaciones ? 'granted' : 'denied');
+        } catch (error) {
+          console.log('⚠️ Error en verificación periódica:', error);
+        }
+      }
+    }, 30000); // Cada 30 segundos
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, [toast]);
 
   const solicitarPermisosNuevamente = async () => {
     try {
-      console.log('🔄 Re-solicitando permisos...');
+      console.log('🔄 Re-solicitando todos los permisos...');
       
-      const permisos = await MobilePermissionsService.solicitarPermisosAutomaticamente();
+      const permisos = await MobilePermissionsService.verificarYSolicitarTodosLosPermisos();
       
       setHasPermission(permisos.notificaciones);
       setPermissionStatus(permisos.notificaciones ? 'granted' : 'denied');
       
-      if (permisos.notificaciones) {
+      if (permisos.notificaciones && permisos.ubicacion) {
         toast({
-          title: "✅ Permisos Activados",
-          description: "Sistema configurado correctamente"
+          title: "✅ Todos los Permisos Activos",
+          description: "GPS y notificaciones funcionando perfectamente"
+        });
+      } else if (permisos.notificaciones) {
+        toast({
+          title: "✅ Notificaciones Activas",
+          description: "Sistema de alertas configurado"
         });
       }
       
@@ -145,6 +184,7 @@ export const useNotifications = () => {
     solicitarPermisosNuevamente,
     isInitialized,
     hasPermission,
-    permissionStatus
+    permissionStatus,
+    isAutoRequesting
   };
 };

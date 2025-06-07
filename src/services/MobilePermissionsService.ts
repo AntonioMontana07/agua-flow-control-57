@@ -1,4 +1,3 @@
-
 import { Capacitor } from '@capacitor/core';
 
 export class MobilePermissionsService {
@@ -138,13 +137,13 @@ export class MobilePermissionsService {
     }
   }
 
-  // NUEVO MÉTODO: Solicitar permisos automáticamente sin diálogos
+  // MÉTODO MEJORADO: Solicitar permisos automáticamente y de forma persistente
   static async solicitarPermisosAutomaticamente(): Promise<{
     ubicacion: boolean;
     notificaciones: boolean;
     mensajes: string[];
   }> {
-    console.log('🚀 Solicitando TODOS los permisos automáticamente al instalar...');
+    console.log('🚀 Solicitando TODOS los permisos automáticamente (persistente)...');
     
     const resultados = {
       ubicacion: false,
@@ -153,41 +152,168 @@ export class MobilePermissionsService {
     };
     
     try {
-      // Solicitar ambos permisos en paralelo para Android
-      const [ubicacionResult, notificacionesResult] = await Promise.all([
-        this.solicitarPermisosUbicacion(),
-        this.solicitarPermisosNotificaciones()
-      ]);
+      // Solicitar ambos permisos de forma agresiva y persistente
+      const promesas = [
+        this.solicitarPermisosUbicacionPersistente(),
+        this.solicitarPermisosNotificacionesPersistente()
+      ];
+      
+      const [ubicacionResult, notificacionesResult] = await Promise.all(promesas);
       
       resultados.ubicacion = ubicacionResult.granted;
       resultados.notificaciones = notificacionesResult.granted;
       
-      // Log de resultados sin mostrar diálogos al usuario
+      // Log detallado sin diálogos molestos
       if (ubicacionResult.granted) {
-        console.log('✅ Ubicación: CONCEDIDA');
-        resultados.mensajes.push('Ubicación activada');
+        console.log('✅ GPS: ACTIVO Y FUNCIONANDO');
+        resultados.mensajes.push('GPS siempre activo');
       } else {
-        console.log('❌ Ubicación: DENEGADA');
+        console.log('❌ GPS: NO DISPONIBLE');
       }
       
       if (notificacionesResult.granted) {
-        console.log('✅ Notificaciones: CONCEDIDAS');
-        resultados.mensajes.push('Notificaciones activadas');
+        console.log('✅ NOTIFICACIONES: ACTIVAS Y FUNCIONANDO');
+        resultados.mensajes.push('Notificaciones siempre activas');
       } else {
-        console.log('❌ Notificaciones: DENEGADAS');
+        console.log('❌ NOTIFICACIONES: NO DISPONIBLES');
       }
       
     } catch (error) {
-      console.error('❌ Error en solicitud automática de permisos:', error);
-      resultados.mensajes.push('Error al solicitar permisos');
+      console.error('❌ Error en solicitud persistente de permisos:', error);
+      resultados.mensajes.push('Error al mantener permisos activos');
     }
     
-    console.log('📊 Permisos finales:', {
+    console.log('📊 Estado final de permisos persistentes:', {
       ubicacion: resultados.ubicacion,
       notificaciones: resultados.notificaciones
     });
     
     return resultados;
+  }
+
+  // NUEVO: Solicitud persistente de ubicación
+  static async solicitarPermisosUbicacionPersistente(): Promise<{granted: boolean, status: string}> {
+    console.log('📍 Solicitando permisos de ubicación de forma persistente...');
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Geolocation } = await import('@capacitor/geolocation');
+        
+        // Verificar permisos actuales
+        let currentPermission = await Geolocation.checkPermissions();
+        console.log('📍 Estado actual de GPS:', currentPermission);
+        
+        if (currentPermission.location === 'granted') {
+          console.log('✅ GPS ya está activo');
+          return { granted: true, status: 'granted' };
+        }
+        
+        // Si no están concedidos, solicitarlos insistentemente
+        console.log('❓ Solicitando permisos de GPS...');
+        const requestResult = await Geolocation.requestPermissions();
+        console.log('📝 Resultado GPS:', requestResult);
+        
+        // Verificar nuevamente después de la solicitud
+        currentPermission = await Geolocation.checkPermissions();
+        
+        return {
+          granted: currentPermission.location === 'granted',
+          status: currentPermission.location
+        };
+        
+      } catch (error) {
+        console.error('❌ Error al solicitar GPS persistente:', error);
+        return { granted: false, status: 'error' };
+      }
+    } else {
+      // En navegador web - solicitar persistentemente
+      console.log('🌐 Solicitando GPS web persistente...');
+      
+      if (!navigator.geolocation) {
+        return { granted: false, status: 'not_supported' };
+      }
+      
+      try {
+        // Intentar obtener ubicación para verificar permisos
+        await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 8000,
+            enableHighAccuracy: true
+          });
+        });
+        
+        console.log('✅ GPS web activo');
+        return { granted: true, status: 'granted' };
+        
+      } catch (error) {
+        console.log('❌ GPS web no disponible:', error);
+        return { granted: false, status: 'denied' };
+      }
+    }
+  }
+
+  // NUEVO: Solicitud persistente de notificaciones
+  static async solicitarPermisosNotificacionesPersistente(): Promise<{granted: boolean, status: string}> {
+    console.log('🔔 Solicitando permisos de notificaciones de forma persistente...');
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        
+        // Verificar permisos actuales
+        let currentPermission = await LocalNotifications.checkPermissions();
+        console.log('🔔 Estado actual de notificaciones:', currentPermission);
+        
+        if (currentPermission.display === 'granted') {
+          console.log('✅ Notificaciones ya están activas');
+          return { granted: true, status: 'granted' };
+        }
+        
+        // Si no están concedidos, solicitarlos insistentemente
+        console.log('❓ Solicitando permisos de notificaciones...');
+        const requestResult = await LocalNotifications.requestPermissions();
+        console.log('📝 Resultado notificaciones:', requestResult);
+        
+        // Verificar nuevamente después de la solicitud
+        currentPermission = await LocalNotifications.checkPermissions();
+        
+        return {
+          granted: currentPermission.display === 'granted',
+          status: currentPermission.display
+        };
+        
+      } catch (error) {
+        console.error('❌ Error al solicitar notificaciones persistentes:', error);
+        return { granted: false, status: 'error' };
+      }
+    } else {
+      // En navegador web - solicitar persistentemente
+      console.log('🌐 Solicitando notificaciones web persistentes...');
+      
+      if (!('Notification' in window)) {
+        return { granted: false, status: 'not_supported' };
+      }
+      
+      if (Notification.permission === 'granted') {
+        console.log('✅ Notificaciones web ya activas');
+        return { granted: true, status: 'granted' };
+      }
+      
+      if (Notification.permission === 'denied') {
+        console.log('❌ Notificaciones web bloqueadas');
+        return { granted: false, status: 'denied' };
+      }
+      
+      // Solicitar permisos
+      console.log('❓ Solicitando notificaciones web...');
+      const permission = await Notification.requestPermission();
+      console.log('📝 Resultado notificaciones web:', permission);
+      
+      return {
+        granted: permission === 'granted',
+        status: permission
+      };
+    }
   }
   
   static async verificarYSolicitarTodosLosPermisos(): Promise<{

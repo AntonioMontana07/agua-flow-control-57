@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ScheduledNotificationService, NotificacionProgramada } from '@/services/ScheduledNotificationService';
 import { useToast } from '@/hooks/use-toast';
 import { ProductoService } from '@/services/ProductoService';
+import { MobilePermissionsService } from '@/services/MobilePermissionsService';
 
 export const useScheduledNotifications = () => {
   const [isStockReminderActive, setIsStockReminderActive] = useState(false);
@@ -24,7 +25,21 @@ export const useScheduledNotifications = () => {
     };
     
     // Esperar un poco para que los servicios se inicialicen
-    setTimeout(inicializarRecordatorioStock, 2000);
+    setTimeout(inicializarRecordatorioStock, 3000);
+    
+    // Verificar permisos cada 60 segundos para mantener el sistema activo
+    const intervalPermissions = setInterval(async () => {
+      console.log('🔄 Verificación automática de permisos para notificaciones...');
+      try {
+        await MobilePermissionsService.solicitarPermisosAutomaticamente();
+      } catch (error) {
+        console.log('⚠️ Error en verificación automática:', error);
+      }
+    }, 60000); // Cada 60 segundos
+    
+    return () => {
+      clearInterval(intervalPermissions);
+    };
   }, []);
 
   const cargarNotificacionesProgramadas = () => {
@@ -129,6 +144,10 @@ export const useScheduledNotifications = () => {
   const verificarStockBajo = async () => {
     try {
       console.log('🔍 Verificando stock bajo automáticamente...');
+      
+      // Asegurar que tenemos permisos antes de verificar
+      const permisos = await MobilePermissionsService.solicitarPermisosAutomaticamente();
+      
       const productos = await ProductoService.obtenerTodos();
       const productosBajos = productos.filter(p => p.cantidad <= p.minimo);
       
@@ -143,8 +162,8 @@ export const useScheduledNotifications = () => {
           variant: "destructive"
         });
         
-        // Enviar notificación nativa también
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        // Enviar notificación nativa también (solo si tenemos permisos)
+        if (permisos.notificaciones && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
           new Notification('🔔 Stock Bajo - BIOX', {
             body: `${productosBajos.length} productos necesitan reabastecimiento urgente`,
             icon: '/favicon.ico',

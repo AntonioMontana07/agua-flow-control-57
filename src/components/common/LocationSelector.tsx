@@ -2,14 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, AlertTriangle, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-
-// Configurar token de Mapbox
-mapboxgl.accessToken = 'pk.eyJ1Ijoib2xpdmVyYXZlbjA1IiwiYSI6ImNtYm1vY2ZnZzFkcHoybXB6cnh1cjUwOTIifQ.6msn-8p6pZHC_R_wdBpjLw';
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -46,13 +43,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string>('');
+  const [mapboxToken, setMapboxToken] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
   const { toast } = useToast();
   
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
 
-  // Coordenadas y límites de Arequipa - más precisos
+  // Coordenadas y límites de Arequipa
   const AREQUIPA_CENTER: [number, number] = [-71.537451, -16.409047];
   const AREQUIPA_BOUNDS = {
     north: -16.2,
@@ -61,19 +60,44 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Inicializar mapa optimizado
+  // Verificar si hay token guardado al cargar
+  useEffect(() => {
+    const savedToken = localStorage.getItem('mapbox_token');
+    if (savedToken) {
+      setMapboxToken(savedToken);
+      mapboxgl.accessToken = savedToken;
+    } else {
+      setShowTokenInput(true);
+    }
+  }, []);
+
+  // Guardar token cuando cambie
+  const handleTokenSave = () => {
+    if (mapboxToken.trim()) {
+      localStorage.setItem('mapbox_token', mapboxToken);
+      mapboxgl.accessToken = mapboxToken;
+      setShowTokenInput(false);
+      toast({
+        title: "Token Guardado",
+        description: "El token de Mapbox se ha guardado correctamente"
+      });
+    } else {
+      toast({
+        title: "Token Requerido",
+        description: "Por favor ingresa un token válido de Mapbox",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Inicializar mapa
   const initializeMap = async () => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (!mapContainerRef.current || mapRef.current || !mapboxgl.accessToken) return;
     
     try {
-      console.log('🗺️ Iniciando mapa Mapbox optimizado...');
+      console.log('🗺️ Iniciando mapa Mapbox...');
       setMapError('');
       
-      // Verificar que el token esté configurado
-      if (!mapboxgl.accessToken) {
-        throw new Error('Token de Mapbox no configurado');
-      }
-
       const map = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/streets-v12',
@@ -99,7 +123,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         'top-right'
       );
 
-      // Event listener optimizado para clicks
+      // Event listener para clicks
       map.on('click', async (e) => {
         const { lng, lat } = e.lngLat;
         console.log('📍 Click en mapa:', { lat, lng });
@@ -116,13 +140,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      // Event listeners optimizados
+      // Event listeners
       map.on('load', () => {
         console.log('✅ Mapa cargado correctamente');
         setMapReady(true);
         setMapError('');
         
-        // Geocodificar dirección actual si existe
         if (currentValue && !selectedLocation) {
           setTimeout(() => geocodeCurrentAddress(), 1000);
         }
@@ -130,32 +153,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       map.on('error', (error) => {
         console.error('❌ Error del mapa:', error);
-        setMapError('Error cargando el mapa. Reintentando...');
-        
-        // Reintentar después de 3 segundos
-        setTimeout(() => {
-          setMapError('');
-          initializeMap();
-        }, 3000);
-      });
-
-      map.on('idle', () => {
-        console.log('🎯 Mapa listo para interacciones');
+        setMapError('Error cargando el mapa. Verifica tu token de Mapbox.');
+        setShowTokenInput(true);
       });
 
     } catch (error) {
       console.error('❌ Error inicializando mapa:', error);
-      setMapError('Error al cargar el mapa. Verificando conexión...');
-      
-      // Reintentar después de 5 segundos
-      setTimeout(() => {
-        setMapError('');
-        initializeMap();
-      }, 5000);
+      setMapError('Error al cargar el mapa. Verifica tu token de Mapbox.');
+      setShowTokenInput(true);
     }
   };
 
-  // Función optimizada para actualizar marcador
   const updateMarker = (lng: number, lat: number) => {
     if (!mapRef.current) return;
     
@@ -171,7 +179,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Limpiar mapa
   const cleanupMap = () => {
     console.log('🧹 Limpiando mapa...');
     
@@ -189,15 +196,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setMapError('');
   };
 
-  // Effect para inicializar
+  // Effects
   useEffect(() => {
-    if (isOpen && !mapReady && !mapRef.current) {
+    if (isOpen && !mapReady && !mapRef.current && mapboxgl.accessToken) {
       const timer = setTimeout(initializeMap, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, mapboxgl.accessToken]);
 
-  // Effect para limpiar
   useEffect(() => {
     if (!isOpen) {
       cleanupMap();
@@ -207,7 +213,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   }, [isOpen]);
 
-  // Verificar permisos al cargar
   useEffect(() => {
     checkLocationPermission();
   }, []);
@@ -383,7 +388,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Configuración de alta precisión para móvil
         const { Geolocation } = await import('@capacitor/geolocation');
         
         console.log('📱 Solicitando ubicación móvil con alta precisión...');
@@ -398,7 +402,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         
         await handleLocationSuccess(latitude, longitude, accuracy);
       } else {
-        // Configuración de alta precisión para web
         console.log('🌐 Solicitando ubicación web con alta precisión...');
         
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -479,6 +482,34 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación Exacta en Arequipa</DialogTitle>
           </DialogHeader>
           
+          {showTokenInput && (
+            <div className="p-3 sm:p-4 border-b bg-yellow-50">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-orange-700">
+                  <Key className="h-4 w-4" />
+                  <span className="text-sm font-medium">Token de Mapbox Requerido</span>
+                </div>
+                <p className="text-xs text-gray-600">
+                  Para usar el mapa, necesitas un token de Mapbox. Puedes obtenerlo gratis en{' '}
+                  <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                    mapbox.com
+                  </a>
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Pega tu token de Mapbox aquí..."
+                    value={mapboxToken}
+                    onChange={(e) => setMapboxToken(e.target.value)}
+                    className="flex-1 text-sm"
+                  />
+                  <Button onClick={handleTokenSave} size="sm">
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!hasLocationPermission && locationPermissionStatus === 'denied' && (
             <div className="p-3 bg-orange-50 border-b border-orange-200">
               <div className="flex items-center gap-2 text-orange-700">
@@ -564,16 +595,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    onClick={() => {
-                      setMapError('');
-                      initializeMap();
-                    }}
+                    onClick={() => setShowTokenInput(true)}
                   >
-                    Reintentar
+                    Configurar Token
                   </Button>
                 </div>
               </div>
-            ) : !mapReady ? (
+            ) : !mapReady && !showTokenInput ? (
               <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />

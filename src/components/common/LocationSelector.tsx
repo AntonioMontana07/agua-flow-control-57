@@ -49,7 +49,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState<string>('');
   const { toast } = useToast();
   
   const mapRef = useRef<L.Map | null>(null);
@@ -65,26 +64,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Inicializar mapa de forma simple y rápida
-  const initializeMap = async () => {
+  // Inicializar mapa inmediatamente
+  const initializeMap = () => {
     if (!mapContainerRef.current || mapRef.current) return;
     
     try {
-      console.log('🗺️ Cargando mapa rápido...');
-      setMapError('');
+      console.log('🗺️ Inicializando mapa inmediatamente...');
       
-      // Crear mapa básico
+      // Crear mapa básico sin delays
       const map = L.map(mapContainerRef.current, {
         center: AREQUIPA_CENTER,
         zoom: 13,
         zoomControl: true,
-        attributionControl: false // Remover para cargar más rápido
+        attributionControl: false
       });
 
-      // Usar tiles más rápidos
+      // Tiles de OpenStreetMap - más rápidos
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
-        attribution: '' // String vacío en lugar de false
+        attribution: ''
       }).addTo(map);
 
       mapRef.current = map;
@@ -105,16 +103,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      // Mapa listo
-      map.whenReady(() => {
-        console.log('✅ Mapa cargado');
-        setMapReady(true);
-        setMapError('');
-      });
+      // Mapa listo inmediatamente
+      setMapReady(true);
+      console.log('✅ Mapa cargado exitosamente');
 
     } catch (error) {
       console.error('❌ Error cargando mapa:', error);
-      setMapError('Error al cargar el mapa');
+      setMapReady(true); // Mostrar el mapa aunque haya error
     }
   };
 
@@ -142,12 +137,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setMapReady(false);
   };
 
-  // Effects
+  // Effect para inicializar mapa inmediatamente cuando se abre
   useEffect(() => {
-    if (isOpen && !mapReady && !mapRef.current) {
-      // Delay más corto para cargar más rápido
-      const timer = setTimeout(initializeMap, 50);
-      return () => clearTimeout(timer);
+    if (isOpen && !mapRef.current) {
+      // Sin setTimeout - inicializar inmediatamente
+      initializeMap();
     }
   }, [isOpen]);
 
@@ -388,14 +382,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-4 min-h-0">
-            {mapError ? (
-              <div className="w-full h-full bg-red-50 rounded-lg border-2 border-red-200 flex items-center justify-center" style={{ minHeight: '300px' }}>
-                <div className="text-center p-4">
-                  <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                  <p className="text-sm text-red-600">{mapError}</p>
-                </div>
-              </div>
-            ) : !mapReady ? (
+            {!mapReady ? (
               <div className="w-full h-full bg-gray-100 rounded-lg border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />

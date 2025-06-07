@@ -46,14 +46,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string>('');
   const { toast } = useToast();
   
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
 
-  // Coordenadas y límites de Arequipa
-  const AREQUIPA_CENTER: [number, number] = [-71.537451, -16.409047]; // lng, lat para Mapbox
+  // Coordenadas y límites de Arequipa - más precisos
+  const AREQUIPA_CENTER: [number, number] = [-71.537451, -16.409047];
   const AREQUIPA_BOUNDS = {
     north: -16.2,
     south: -16.6,
@@ -61,40 +62,54 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Inicializar mapa
-  const initializeMap = () => {
+  // Inicializar mapa optimizado
+  const initializeMap = async () => {
     if (!mapContainerRef.current || mapRef.current) return;
     
     try {
-      console.log('🗺️ Inicializando mapa Mapbox...');
+      console.log('🗺️ Iniciando mapa Mapbox optimizado...');
+      setMapError('');
       
-      mapRef.current = new mapboxgl.Map({
+      // Verificar que el token esté configurado
+      if (!mapboxgl.accessToken) {
+        throw new Error('Token de Mapbox no configurado');
+      }
+
+      const map = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: 'mapbox://styles/mapbox/streets-v12',
         center: AREQUIPA_CENTER,
         zoom: 13,
-        language: 'es'
+        pitch: 0,
+        bearing: 0,
+        language: 'es',
+        // Optimizaciones de rendimiento
+        optimizeForTerrain: true,
+        antialias: true,
+        preserveDrawingBuffer: false,
+        refreshExpiredTiles: false,
+        maxZoom: 20,
+        minZoom: 10
       });
 
-      // Añadir controles de navegación
-      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      mapRef.current = map;
 
-      // Event listener para clicks en el mapa
-      mapRef.current.on('click', async (e) => {
+      // Añadir controles de navegación
+      map.addControl(
+        new mapboxgl.NavigationControl({
+          showCompass: true,
+          showZoom: true
+        }), 
+        'top-right'
+      );
+
+      // Event listener optimizado para clicks
+      map.on('click', async (e) => {
         const { lng, lat } = e.lngLat;
+        console.log('📍 Click en mapa:', { lat, lng });
         
         if (isLocationInArequipa(lat, lng)) {
-          console.log('📍 Ubicación seleccionada:', { lat, lng });
-          
-          // Actualizar o crear marcador
-          if (markerRef.current) {
-            markerRef.current.setLngLat([lng, lat]);
-          } else {
-            markerRef.current = new mapboxgl.Marker()
-              .setLngLat([lng, lat])
-              .addTo(mapRef.current!);
-          }
-          
+          updateMarker(lng, lat);
           await reverseGeocode(lat, lng);
         } else {
           toast({
@@ -105,22 +120,65 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      mapRef.current.on('load', () => {
+      // Event listeners optimizados
+      map.on('load', () => {
+        console.log('✅ Mapa cargado correctamente');
         setMapReady(true);
-        console.log('✅ Mapa Mapbox cargado correctamente');
+        setMapError('');
         
+        // Geocodificar dirección actual si existe
         if (currentValue && !selectedLocation) {
-          setTimeout(() => geocodeCurrentAddress(), 500);
+          setTimeout(() => geocodeCurrentAddress(), 1000);
         }
       });
 
+      map.on('error', (error) => {
+        console.error('❌ Error del mapa:', error);
+        setMapError('Error cargando el mapa. Reintentando...');
+        
+        // Reintentar después de 3 segundos
+        setTimeout(() => {
+          setMapError('');
+          initializeMap();
+        }, 3000);
+      });
+
+      map.on('idle', () => {
+        console.log('🎯 Mapa listo para interacciones');
+      });
+
     } catch (error) {
-      console.error('❌ Error inicializando mapa Mapbox:', error);
+      console.error('❌ Error inicializando mapa:', error);
+      setMapError('Error al cargar el mapa. Verificando conexión...');
+      
+      // Reintentar después de 5 segundos
+      setTimeout(() => {
+        setMapError('');
+        initializeMap();
+      }, 5000);
+    }
+  };
+
+  // Función optimizada para actualizar marcador
+  const updateMarker = (lng: number, lat: number) => {
+    if (!mapRef.current) return;
+    
+    if (markerRef.current) {
+      markerRef.current.setLngLat([lng, lat]);
+    } else {
+      markerRef.current = new mapboxgl.Marker({
+        color: '#3B82F6',
+        scale: 1.2
+      })
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
     }
   };
 
   // Limpiar mapa
   const cleanupMap = () => {
+    console.log('🧹 Limpiando mapa...');
+    
     if (markerRef.current) {
       markerRef.current.remove();
       markerRef.current = null;
@@ -132,18 +190,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
     
     setMapReady(false);
-    console.log('🧹 Mapa Mapbox limpiado');
+    setMapError('');
   };
 
-  // Effect para inicializar cuando se abre
+  // Effect para inicializar
   useEffect(() => {
-    if (isOpen && !mapReady) {
-      const timer = setTimeout(initializeMap, 200);
+    if (isOpen && !mapReady && !mapRef.current) {
+      const timer = setTimeout(initializeMap, 100);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  // Effect para limpiar cuando se cierra
+  // Effect para limpiar
   useEffect(() => {
     if (!isOpen) {
       cleanupMap();
@@ -159,17 +217,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   }, []);
 
   const checkLocationPermission = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
+    try {
+      if (Capacitor.isNativePlatform()) {
         const { Geolocation } = await import('@capacitor/geolocation');
         const permission = await Geolocation.checkPermissions();
         setLocationPermissionStatus(permission.location);
         setHasLocationPermission(permission.location === 'granted');
-      } catch (error) {
-        console.error('Error verificando permisos:', error);
+        console.log('📱 Permisos móvil:', permission.location);
+      } else {
+        const hasGeo = !!navigator.geolocation;
+        setHasLocationPermission(hasGeo);
+        console.log('🌐 Geolocalización web:', hasGeo);
       }
-    } else {
-      setHasLocationPermission(!!navigator.geolocation);
+    } catch (error) {
+      console.error('Error verificando permisos:', error);
+      setHasLocationPermission(false);
     }
   };
 
@@ -184,9 +246,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     if (!currentValue?.trim()) return;
     
     try {
+      console.log('🔍 Geocodificando dirección actual:', currentValue);
       const query = `${currentValue}, Arequipa, Perú`;
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=pe`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=pe&addressdetails=1`
       );
       
       const data = await response.json();
@@ -196,27 +259,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const lng = parseFloat(result.lon);
         
         if (isLocationInArequipa(lat, lng) && mapRef.current) {
+          console.log('✅ Dirección encontrada:', { lat, lng });
           setSelectedLocation({ lat, lng, address: currentValue });
           mapRef.current.setCenter([lng, lat]);
           mapRef.current.setZoom(16);
-          
-          if (markerRef.current) {
-            markerRef.current.setLngLat([lng, lat]);
-          } else {
-            markerRef.current = new mapboxgl.Marker()
-              .setLngLat([lng, lat])
-              .addTo(mapRef.current);
-          }
+          updateMarker(lng, lat);
         }
       }
     } catch (error) {
-      console.error('Error geocodificando:', error);
+      console.error('Error geocodificando dirección:', error);
     }
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      console.log('🔍 Obteniendo dirección exacta para:', { lat, lng });
+      console.log('🔍 Geocodificación inversa para:', { lat, lng });
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`
       );
@@ -246,15 +303,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
         
         address = parts.join(', ');
-        
-        if (!address || address === 'Arequipa') {
-          address = `Ubicación exacta: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
-        }
-      } else {
+      }
+      
+      if (!address || address === 'Arequipa') {
         address = `Ubicación exacta: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
       }
 
-      console.log('📍 Dirección exacta obtenida:', address);
+      console.log('📍 Dirección obtenida:', address);
       setSelectedLocation({ lat, lng, address });
     } catch (error) {
       console.error('Error en geocodificación inversa:', error);
@@ -328,44 +383,50 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     setIsGettingLocation(true);
+    console.log('📡 Obteniendo ubicación GPS de alta precisión...');
 
     try {
       if (Capacitor.isNativePlatform()) {
+        // Configuración de alta precisión para móvil
         const { Geolocation } = await import('@capacitor/geolocation');
+        
+        console.log('📱 Solicitando ubicación móvil con alta precisión...');
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
-          timeout: 15000,
+          timeout: 20000,
           maximumAge: 0
         });
         
-        const { latitude, longitude } = position.coords;
-        await handleLocationSuccess(latitude, longitude);
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(`📍 GPS móvil - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
+        
+        await handleLocationSuccess(latitude, longitude, accuracy);
       } else {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            handleLocationSuccess(latitude, longitude);
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            toast({
-              title: "Error de ubicación",
-              description: "No se pudo obtener tu ubicación exacta",
-              variant: "destructive"
-            });
-          },
-          { 
-            enableHighAccuracy: true, 
-            timeout: 15000,
-            maximumAge: 0
-          }
-        );
+        // Configuración de alta precisión para web
+        console.log('🌐 Solicitando ubicación web con alta precisión...');
+        
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            { 
+              enableHighAccuracy: true, 
+              timeout: 20000,
+              maximumAge: 0
+            }
+          );
+        });
+        
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(`📍 GPS web - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
+        
+        await handleLocationSuccess(latitude, longitude, accuracy);
       }
     } catch (error) {
-      console.error('Error al obtener ubicación:', error);
+      console.error('❌ Error obteniendo ubicación:', error);
       toast({
         title: "Error de ubicación",
-        description: "No se pudo obtener tu ubicación exacta",
+        description: "No se pudo obtener tu ubicación exacta. Verifica que el GPS esté activado.",
         variant: "destructive"
       });
     } finally {
@@ -373,27 +434,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  const handleLocationSuccess = async (latitude: number, longitude: number) => {
-    console.log('📍 Ubicación GPS exacta obtenida:', { latitude, longitude });
+  const handleLocationSuccess = async (latitude: number, longitude: number, accuracy?: number) => {
+    console.log(`✅ Ubicación GPS obtenida - Precisión: ${accuracy ? Math.round(accuracy) + 'm' : 'desconocida'}`);
     
     if (isLocationInArequipa(latitude, longitude)) {
       if (mapRef.current) {
         mapRef.current.setCenter([longitude, latitude]);
         mapRef.current.setZoom(18);
-        
-        if (markerRef.current) {
-          markerRef.current.setLngLat([longitude, latitude]);
-        } else {
-          markerRef.current = new mapboxgl.Marker()
-            .setLngLat([longitude, latitude])
-            .addTo(mapRef.current);
-        }
+        updateMarker(longitude, latitude);
       }
       
       await reverseGeocode(latitude, longitude);
+      
+      const precisionMsg = accuracy 
+        ? `Precisión GPS: ${Math.round(accuracy)}m` 
+        : 'Ubicación GPS obtenida';
+        
       toast({
         title: "Ubicación Exacta Obtenida",
-        description: "Tu ubicación actual fue detectada con precisión GPS"
+        description: precisionMsg
       });
     } else {
       toast({
@@ -464,15 +523,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 size="sm"
                 onClick={getCurrentLocation}
                 disabled={isGettingLocation}
-                className="gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                className="gap-2 text-xs sm:text-sm px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 border-blue-200"
               >
                 {isGettingLocation ? (
                   <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                 ) : (
-                  <Navigation className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <Navigation className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                 )}
-                <span className="hidden sm:inline">Mi ubicación exacta</span>
-                <span className="sm:hidden">GPS</span>
+                <span className="hidden sm:inline font-medium">GPS Exacto</span>
+                <span className="sm:hidden font-medium">GPS</span>
               </Button>
             </div>
           </div>
@@ -501,11 +560,29 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-3 sm:px-4 min-h-0">
-            {!mapReady ? (
+            {mapError ? (
+              <div className="relative w-full h-full bg-red-50 rounded-lg overflow-hidden border-2 border-red-200 flex items-center justify-center" style={{ minHeight: '300px' }}>
+                <div className="text-center p-4">
+                  <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                  <p className="text-sm text-red-600 mb-2">{mapError}</p>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => {
+                      setMapError('');
+                      initializeMap();
+                    }}
+                  >
+                    Reintentar
+                  </Button>
+                </div>
+              </div>
+            ) : !mapReady ? (
               <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Cargando mapa Mapbox...</p>
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
+                  <p className="text-sm text-gray-600">Cargando mapa optimizado...</p>
+                  <p className="text-xs text-gray-500 mt-1">Esto puede tomar unos segundos</p>
                 </div>
               </div>
             ) : (

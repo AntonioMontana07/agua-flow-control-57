@@ -26,27 +26,30 @@ const config: CapacitorConfig = {
     permissions: [
       // Permisos básicos
       "android.permission.INTERNET",
+      "android.permission.ACCESS_WIFI_STATE",
+      "android.permission.ACCESS_NETWORK_STATE",
       
-      // Permisos de ubicación
+      // Permisos de ubicación GPS (MEJORADOS)
       "android.permission.ACCESS_COARSE_LOCATION",
       "android.permission.ACCESS_FINE_LOCATION",
       "android.permission.ACCESS_BACKGROUND_LOCATION",
       
-      // Permisos de notificaciones
+      // Permisos de notificaciones (COMPLETOS)
       "android.permission.POST_NOTIFICATIONS",
       "android.permission.WAKE_LOCK",
       "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.VIBRATE",
       
       // Permisos adicionales para mejor funcionamiento
-      "android.permission.ACCESS_WIFI_STATE",
-      "android.permission.ACCESS_NETWORK_STATE",
-      "android.permission.VIBRATE"
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_LOCATION"
     ]
   },
   ios: {
     permissions: [
       "NSLocationWhenInUseUsageDescription",
-      "NSLocationAlwaysAndWhenInUseUsageDescription"
+      "NSLocationAlwaysAndWhenInUseUsageDescription",
+      "NSLocationAlwaysUsageDescription"
     ]
   }
 };

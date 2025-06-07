@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string>('');
+  const [isAutoLocating, setIsAutoLocating] = useState(false);
   const { toast } = useToast();
   
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -115,9 +117,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         setMapReady(true);
         setMapError('');
         
-        if (currentValue && !selectedLocation) {
-          setTimeout(() => geocodeCurrentAddress(), 1000);
-        }
+        // Automáticamente obtener ubicación GPS cuando el mapa esté listo
+        console.log('🚀 Iniciando localización automática...');
+        setTimeout(() => {
+          autoGetCurrentLocation();
+        }, 500);
       });
 
       map.on('error', (error) => {
@@ -160,6 +164,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
     
     setMapReady(false);
+    setIsAutoLocating(false);
   };
 
   // Effects
@@ -222,17 +227,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             title: "✅ Permisos Concedidos",
             description: "GPS activado correctamente"
           });
-          // Obtener ubicación automáticamente
-          setTimeout(() => getCurrentLocation(), 500);
+          return true;
         } else {
           toast({
             title: "❌ Permisos Requeridos",
             description: "Ve a Configuración para activar ubicación",
             variant: "destructive"
           });
+          return false;
         }
-        
-        return permission.location === 'granted';
       } else {
         // En web, solicitar ubicación directamente
         try {
@@ -391,14 +394,62 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     if (mapRef.current) {
       mapRef.current.setCenter([lng, lat]);
       mapRef.current.setZoom(17);
-      
-      if (markerRef.current) {
-        markerRef.current.setLngLat([lng, lat]);
-      } else {
-        markerRef.current = new mapboxgl.Marker()
-          .setLngLat([lng, lat])
-          .addTo(mapRef.current);
+      updateMarker(lng, lat);
+    }
+  };
+
+  // Nueva función para localización automática (sin mostrar toast de error)
+  const autoGetCurrentLocation = async () => {
+    console.log('🔄 Iniciando localización automática GPS...');
+    setIsAutoLocating(true);
+
+    try {
+      // Verificar permisos primero
+      if (!hasLocationPermission) {
+        const granted = await requestLocationPermission();
+        if (!granted) {
+          console.log('⚠️ Permisos de ubicación no concedidos - continuando sin GPS');
+          setIsAutoLocating(false);
+          return;
+        }
       }
+
+      if (Capacitor.isNativePlatform()) {
+        const { Geolocation } = await import('@capacitor/geolocation');
+        
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        });
+        
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(`📍 GPS automático móvil - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
+        
+        await handleAutoLocationSuccess(latitude, longitude, accuracy);
+      } else {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            { 
+              enableHighAccuracy: true, 
+              timeout: 15000,
+              maximumAge: 0
+            }
+          );
+        });
+        
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(`📍 GPS automático web - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
+        
+        await handleAutoLocationSuccess(latitude, longitude, accuracy);
+      }
+    } catch (error: any) {
+      console.log('⚠️ Localización automática falló (normal):', error);
+      // No mostrar toast de error para localización automática
+    } finally {
+      setIsAutoLocating(false);
     }
   };
 
@@ -410,7 +461,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     setIsGettingLocation(true);
-    console.log('📡 Obteniendo ubicación GPS...');
+    console.log('📡 Obteniendo ubicación GPS manual...');
 
     try {
       if (Capacitor.isNativePlatform()) {
@@ -423,7 +474,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         });
         
         const { latitude, longitude, accuracy } = position.coords;
-        console.log(`📍 GPS móvil - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
+        console.log(`📍 GPS manual móvil - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
         
         await handleLocationSuccess(latitude, longitude, accuracy);
       } else {
@@ -440,12 +491,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         });
         
         const { latitude, longitude, accuracy } = position.coords;
-        console.log(`📍 GPS web - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
+        console.log(`📍 GPS manual web - Lat: ${latitude}, Lng: ${longitude}, Precisión: ${accuracy}m`);
         
         await handleLocationSuccess(latitude, longitude, accuracy);
       }
     } catch (error: any) {
-      console.error('❌ Error obteniendo ubicación:', error);
+      console.error('❌ Error obteniendo ubicación manual:', error);
       toast({
         title: "Error de Ubicación",
         description: "No se pudo obtener la ubicación GPS",
@@ -456,8 +507,27 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  // Para localización automática (sin toast)
+  const handleAutoLocationSuccess = async (latitude: number, longitude: number, accuracy?: number) => {
+    console.log(`✅ Ubicación GPS automática obtenida - Precisión: ${accuracy ? Math.round(accuracy) + 'm' : 'desconocida'}`);
+    
+    if (isLocationInArequipa(latitude, longitude)) {
+      if (mapRef.current) {
+        mapRef.current.setCenter([longitude, latitude]);
+        mapRef.current.setZoom(18);
+        updateMarker(longitude, latitude);
+      }
+      
+      await reverseGeocode(latitude, longitude);
+      console.log('✅ Ubicación automática centrada en Arequipa');
+    } else {
+      console.log('⚠️ Ubicación automática fuera de Arequipa - mantener centro por defecto');
+    }
+  };
+
+  // Para localización manual (con toast)
   const handleLocationSuccess = async (latitude: number, longitude: number, accuracy?: number) => {
-    console.log(`✅ Ubicación GPS obtenida - Precisión: ${accuracy ? Math.round(accuracy) + 'm' : 'desconocida'}`);
+    console.log(`✅ Ubicación GPS manual obtenida - Precisión: ${accuracy ? Math.round(accuracy) + 'm' : 'desconocida'}`);
     
     if (isLocationInArequipa(latitude, longitude)) {
       if (mapRef.current) {
@@ -533,16 +603,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 variant="default"
                 size="sm"
                 onClick={getCurrentLocation}
-                disabled={isGettingLocation}
+                disabled={isGettingLocation || isAutoLocating}
                 className="gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-lg font-semibold transition-all duration-200 hover:shadow-xl hover:scale-105"
               >
-                {isGettingLocation ? (
+                {isGettingLocation || isAutoLocating ? (
                   <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                 ) : (
                   <Navigation className="h-4 w-4 sm:h-5 sm:w-5" />
                 )}
-                <span className="hidden sm:inline">Mi Ubicación</span>
-                <span className="sm:hidden">GPS</span>
+                <span className="hidden sm:inline">
+                  {isAutoLocating ? 'Localizando...' : 'Mi Ubicación'}
+                </span>
+                <span className="sm:hidden">
+                  {isAutoLocating ? 'GPS...' : 'GPS'}
+                </span>
               </Button>
             </div>
           </div>
@@ -582,7 +656,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-                  <p className="text-sm text-gray-600">Cargando mapa...</p>
+                  <p className="text-sm text-gray-600">
+                    {isAutoLocating ? 'Cargando mapa y obteniendo GPS...' : 'Cargando mapa...'}
+                  </p>
                 </div>
               </div>
             ) : (

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, Navigation, AlertTriangle, Shield } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import mapboxgl from 'mapbox-gl';
@@ -43,8 +43,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
-  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string>('');
   const { toast } = useToast();
@@ -182,7 +180,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setSearchQuery('');
       setSearchResults([]);
       setSelectedLocation(null);
-      setShowPermissionDialog(false);
     }
   }, [isOpen]);
 
@@ -197,30 +194,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       if (Capacitor.isNativePlatform()) {
         const { Geolocation } = await import('@capacitor/geolocation');
         const permission = await Geolocation.checkPermissions();
-        setLocationPermissionStatus(permission.location);
         setHasLocationPermission(permission.location === 'granted');
         console.log('📱 Permisos móvil:', permission.location);
-        
-        if (permission.location === 'denied') {
-          console.log('❌ Permisos denegados - mostrando diálogo de explicación');
-        }
       } else {
         // En web, verificamos si geolocalización está disponible
         const hasGeo = !!navigator.geolocation;
         setHasLocationPermission(hasGeo);
         console.log('🌐 Geolocalización web disponible:', hasGeo);
-        
-        // Verificar permisos en web
-        if ('permissions' in navigator && hasGeo) {
-          try {
-            const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-            setLocationPermissionStatus(permission.state);
-            setHasLocationPermission(permission.state === 'granted');
-            console.log('🌐 Estado de permisos web:', permission.state);
-          } catch (error) {
-            console.log('⚠️ No se pueden verificar permisos en este navegador');
-          }
-        }
       }
     } catch (error) {
       console.error('Error verificando permisos:', error);
@@ -230,40 +210,35 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const requestLocationPermission = async () => {
     try {
-      console.log('📱 Solicitando permisos de ubicación explícitamente...');
+      console.log('📱 Solicitando permisos de ubicación...');
       
       if (Capacitor.isNativePlatform()) {
         const { Geolocation } = await import('@capacitor/geolocation');
         
-        // Solicitar permisos explícitamente
+        // Solicitar permisos directamente
         const permission = await Geolocation.requestPermissions();
         console.log('📝 Resultado de solicitud móvil:', permission);
         
-        setLocationPermissionStatus(permission.location);
         setHasLocationPermission(permission.location === 'granted');
         
         if (permission.location === 'granted') {
           toast({
             title: "✅ Permisos Concedidos",
-            description: "Ahora puedes usar tu ubicación GPS exacta"
+            description: "GPS activado correctamente"
           });
-          setShowPermissionDialog(false);
-          // Obtener ubicación automáticamente después de conceder permisos
+          // Obtener ubicación automáticamente
           setTimeout(() => getCurrentLocation(), 500);
-        } else if (permission.location === 'denied') {
+        } else {
           toast({
-            title: "❌ Permisos Denegados",
-            description: "Ve a Configuración > Aplicaciones > BIOX > Permisos > Ubicación",
-            variant: "destructive",
-            duration: 8000
+            title: "❌ Permisos Requeridos",
+            description: "Ve a Configuración para activar ubicación",
+            variant: "destructive"
           });
         }
         
         return permission.location === 'granted';
       } else {
-        // En web, intentar acceder a geolocalización para activar el prompt
-        console.log('🌐 Solicitando permisos web...');
-        
+        // En web, solicitar ubicación directamente
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -272,40 +247,24 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             });
           });
           
-          console.log('✅ Permisos web concedidos');
           setHasLocationPermission(true);
-          setLocationPermissionStatus('granted');
-          setShowPermissionDialog(false);
-          
           toast({
-            title: "✅ Permisos Concedidos",
-            description: "Ubicación disponible para usar"
+            title: "✅ Ubicación Activada",
+            description: "GPS disponible"
           });
           
           return true;
         } catch (error: any) {
-          console.log('❌ Error solicitando permisos web:', error);
-          
-          if (error.code === 1) { // PERMISSION_DENIED
-            setLocationPermissionStatus('denied');
-            toast({
-              title: "❌ Permisos Denegados",
-              description: "Ve a configuración del navegador para permitir ubicación",
-              variant: "destructive",
-              duration: 8000
-            });
-          }
-          
+          toast({
+            title: "❌ Permisos Requeridos",
+            description: "Activa la ubicación en tu navegador",
+            variant: "destructive"
+          });
           return false;
         }
       }
     } catch (error) {
       console.error('❌ Error solicitando permisos:', error);
-      toast({
-        title: "Error",
-        description: "No se pudieron solicitar los permisos de ubicación",
-        variant: "destructive"
-      });
       return false;
     }
   };
@@ -448,23 +407,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const getCurrentLocation = async () => {
-    console.log('🔍 Verificando permisos antes de obtener ubicación...');
-    
-    // Verificar si tenemos permisos antes de proceder
-    if (!hasLocationPermission || locationPermissionStatus === 'denied') {
-      console.log('❌ Sin permisos - mostrando diálogo de solicitud');
-      setShowPermissionDialog(true);
-      return;
+    // Si no tenemos permisos, solicitarlos automáticamente
+    if (!hasLocationPermission) {
+      const granted = await requestLocationPermission();
+      if (!granted) return;
     }
 
     setIsGettingLocation(true);
-    console.log('📡 Obteniendo ubicación GPS de alta precisión...');
+    console.log('📡 Obteniendo ubicación GPS...');
 
     try {
       if (Capacitor.isNativePlatform()) {
         const { Geolocation } = await import('@capacitor/geolocation');
         
-        console.log('📱 Solicitando ubicación móvil con alta precisión...');
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
           timeout: 20000,
@@ -476,8 +431,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         
         await handleLocationSuccess(latitude, longitude, accuracy);
       } else {
-        console.log('🌐 Solicitando ubicación web con alta precisión...');
-        
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
             resolve,
@@ -497,20 +450,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }
     } catch (error: any) {
       console.error('❌ Error obteniendo ubicación:', error);
-      
-      // Si el error es de permisos, mostrar diálogo
-      if (error.code === 1 || error.message?.includes('permission')) {
-        console.log('❌ Error de permisos - mostrando diálogo');
-        setHasLocationPermission(false);
-        setLocationPermissionStatus('denied');
-        setShowPermissionDialog(true);
-      } else {
-        toast({
-          title: "Error de ubicación",
-          description: "No se pudo obtener tu ubicación exacta. Verifica que el GPS esté activado.",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error de Ubicación",
+        description: "No se pudo obtener la ubicación GPS",
+        variant: "destructive"
+      });
     } finally {
       setIsGettingLocation(false);
     }
@@ -565,61 +509,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación Exacta en Arequipa</DialogTitle>
           </DialogHeader>
           
-          {/* Diálogo de solicitud de permisos */}
-          {showPermissionDialog && (
-            <div className="p-4 bg-blue-50 border-b border-blue-200">
-              <div className="flex items-start gap-3">
-                <Shield className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <h4 className="font-medium text-blue-900 mb-2">
-                    Permisos de Ubicación Requeridos
-                  </h4>
-                  <p className="text-sm text-blue-700 mb-3">
-                    Para obtener tu ubicación exacta con GPS, necesitamos acceso a tu ubicación. 
-                    Esto nos permite darte la dirección más precisa posible.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={requestLocationPermission}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Conceder Permisos
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowPermissionDialog(false)}
-                      className="border-blue-300 text-blue-700"
-                    >
-                      Ahora No
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Advertencia de permisos denegados */}
-          {!hasLocationPermission && locationPermissionStatus === 'denied' && !showPermissionDialog && (
-            <div className="p-3 bg-orange-50 border-b border-orange-200">
-              <div className="flex items-center gap-2 text-orange-700">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">
-                  Permisos de ubicación denegados. Ve a Configuración para activarlos.
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowPermissionDialog(true)}
-                  className="ml-auto border-orange-300 text-orange-700 hover:bg-orange-100"
-                >
-                  Solicitar Nuevamente
-                </Button>
-              </div>
-            </div>
-          )}
-          
           <div className="p-3 sm:p-4 pb-2 border-b">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
@@ -656,7 +545,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 ) : (
                   <Navigation className="h-4 w-4 sm:h-5 sm:w-5" />
                 )}
-                <span className="hidden sm:inline">GPS Exacto</span>
+                <span className="hidden sm:inline">Mi Ubicación</span>
                 <span className="sm:hidden">GPS</span>
               </Button>
             </div>

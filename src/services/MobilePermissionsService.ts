@@ -137,6 +137,58 @@ export class MobilePermissionsService {
       };
     }
   }
+
+  // NUEVO MÉTODO: Solicitar permisos automáticamente sin diálogos
+  static async solicitarPermisosAutomaticamente(): Promise<{
+    ubicacion: boolean;
+    notificaciones: boolean;
+    mensajes: string[];
+  }> {
+    console.log('🚀 Solicitando TODOS los permisos automáticamente al instalar...');
+    
+    const resultados = {
+      ubicacion: false,
+      notificaciones: false,
+      mensajes: [] as string[]
+    };
+    
+    try {
+      // Solicitar ambos permisos en paralelo para Android
+      const [ubicacionResult, notificacionesResult] = await Promise.all([
+        this.solicitarPermisosUbicacion(),
+        this.solicitarPermisosNotificaciones()
+      ]);
+      
+      resultados.ubicacion = ubicacionResult.granted;
+      resultados.notificaciones = notificacionesResult.granted;
+      
+      // Log de resultados sin mostrar diálogos al usuario
+      if (ubicacionResult.granted) {
+        console.log('✅ Ubicación: CONCEDIDA');
+        resultados.mensajes.push('Ubicación activada');
+      } else {
+        console.log('❌ Ubicación: DENEGADA');
+      }
+      
+      if (notificacionesResult.granted) {
+        console.log('✅ Notificaciones: CONCEDIDAS');
+        resultados.mensajes.push('Notificaciones activadas');
+      } else {
+        console.log('❌ Notificaciones: DENEGADAS');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error en solicitud automática de permisos:', error);
+      resultados.mensajes.push('Error al solicitar permisos');
+    }
+    
+    console.log('📊 Permisos finales:', {
+      ubicacion: resultados.ubicacion,
+      notificaciones: resultados.notificaciones
+    });
+    
+    return resultados;
+  }
   
   static async verificarYSolicitarTodosLosPermisos(): Promise<{
     ubicacion: boolean;

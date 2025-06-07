@@ -15,10 +15,10 @@ export const useNotifications = () => {
   useEffect(() => {
     const initializeNotifications = async () => {
       try {
-        console.log('🔔 Inicializando sistema completo de notificaciones...');
+        console.log('🔔 Inicializando sistema de notificaciones...');
         
-        // Solicitar todos los permisos necesarios
-        const permisos = await MobilePermissionsService.verificarYSolicitarTodosLosPermisos();
+        // Solicitar permisos automáticamente sin diálogos previos
+        const permisos = await MobilePermissionsService.solicitarPermisosAutomaticamente();
         
         setHasPermission(permisos.notificaciones);
         setPermissionStatus(permisos.notificaciones ? 'granted' : 'denied');
@@ -29,62 +29,32 @@ export const useNotifications = () => {
         
         setIsInitialized(true);
         
+        // Solo mostrar toast de confirmación cuando todo esté configurado
         if (permisos.notificaciones && permisos.ubicacion) {
-          console.log('✅ Todos los permisos concedidos - Sistema completo activado');
-          
+          console.log('✅ Sistema completo activado');
           toast({
-            title: "🎉 ¡Sistema Completo Activado!",
-            description: "Notificaciones automáticas cada hora y GPS disponible",
-            duration: 6000
+            title: "✅ Sistema Activado",
+            description: "Notificaciones y GPS configurados correctamente",
+            duration: 3000
           });
         } else if (permisos.notificaciones) {
           console.log('🔔 Solo notificaciones disponibles');
-          
           toast({
             title: "🔔 Notificaciones Activadas",
-            description: "Recibirás alertas automáticas. Para GPS, activa permisos de ubicación",
-            duration: 6000
-          });
-        } else if (permisos.ubicacion) {
-          console.log('📍 Solo ubicación disponible');
-          
-          toast({
-            title: "📍 Ubicación Disponible",
-            description: "GPS activado. Para alertas automáticas, activa notificaciones",
-            duration: 6000
-          });
-        } else {
-          console.log('⚠️ Permisos limitados');
-          
-          const plataforma = Capacitor.isNativePlatform() 
-            ? (Capacitor.getPlatform() === 'ios' ? 'ios' : 'android')
-            : 'web';
-            
-          const instrucciones = MobilePermissionsService.mostrarInstruccionesConfiguracion(plataforma);
-          
-          toast({
-            title: "⚙️ Configuración Requerida",
-            description: `Ve a Configuración de tu dispositivo para activar permisos`,
-            variant: "destructive",
-            duration: 10000
+            description: "Sistema de alertas configurado",
+            duration: 3000
           });
         }
-        
-        // Mostrar mensajes específicos
-        permisos.mensajes.forEach((mensaje, index) => {
-          setTimeout(() => {
-            console.log(mensaje);
-          }, index * 500);
-        });
         
       } catch (error) {
         console.error('❌ Error al inicializar notificaciones:', error);
         setIsInitialized(true);
         
         toast({
-          title: "❌ Error de Inicialización",
-          description: "Hubo un problema al configurar las notificaciones",
-          variant: "destructive"
+          title: "⚠️ Configuración Pendiente",
+          description: "Algunos permisos no fueron concedidos",
+          variant: "destructive",
+          duration: 3000
         });
       }
     };
@@ -96,21 +66,15 @@ export const useNotifications = () => {
     try {
       console.log('🔄 Re-solicitando permisos...');
       
-      const permisos = await MobilePermissionsService.verificarYSolicitarTodosLosPermisos();
+      const permisos = await MobilePermissionsService.solicitarPermisosAutomaticamente();
       
       setHasPermission(permisos.notificaciones);
       setPermissionStatus(permisos.notificaciones ? 'granted' : 'denied');
       
       if (permisos.notificaciones) {
         toast({
-          title: "✅ Permisos Actualizados",
-          description: "Notificaciones activadas correctamente"
-        });
-      } else {
-        toast({
-          title: "⚠️ Permisos Requeridos",
-          description: "Ve a Configuración para activar notificaciones",
-          variant: "destructive"
+          title: "✅ Permisos Activados",
+          description: "Sistema configurado correctamente"
         });
       }
       

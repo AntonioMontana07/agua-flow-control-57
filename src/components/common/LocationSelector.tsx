@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -82,9 +81,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         zoom: 13,
         pitch: 0,
         bearing: 0,
-        language: 'es',
-        // Optimizaciones de rendimiento
-        optimizeForTerrain: true,
         antialias: true,
         preserveDrawingBuffer: false,
         refreshExpiredTiles: false,

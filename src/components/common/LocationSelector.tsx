@@ -6,6 +6,11 @@ import { Input } from '@/components/ui/input';
 import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+// Configurar token de Mapbox
+mapboxgl.accessToken = 'pk.eyJ1Ijoib2xpdmVyYXZlbjA1IiwiYSI6ImNtYm1vY2ZnZzFkcHoybXB6cnh1cjUwOTIifQ.6msn-8p6pZHC_R_wdBpjLw';
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -41,16 +46,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string>('prompt');
   const [mapReady, setMapReady] = useState(false);
-  const [mapContainerId, setMapContainerId] = useState('');
   const { toast } = useToast();
   
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markerRef = useRef<any>(null);
-  const leafletRef = useRef<any>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
 
   // Coordenadas y límites de Arequipa
-  const AREQUIPA_CENTER: [number, number] = [-16.409047, -71.537451];
+  const AREQUIPA_CENTER: [number, number] = [-71.537451, -16.409047]; // lng, lat para Mapbox
   const AREQUIPA_BOUNDS = {
     north: -16.2,
     south: -16.6,
@@ -58,91 +61,38 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Generar nuevo ID único cada vez que se abre el modal
-  useEffect(() => {
-    if (isOpen) {
-      const newId = `map-container-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      setMapContainerId(newId);
-      console.log('🆔 Nuevo ID de mapa generado:', newId);
-    }
-  }, [isOpen]);
-
-  // Cargar Leaflet
-  const loadLeaflet = async () => {
-    if (leafletRef.current) return leafletRef.current;
-    
-    try {
-      console.log('🚀 Cargando Leaflet...');
-      
-      // Cargar CSS si no existe
-      if (!document.querySelector('link[href*="leaflet.css"]')) {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-        
-        await new Promise(resolve => {
-          link.onload = resolve;
-          setTimeout(resolve, 1000);
-        });
-      }
-      
-      // Cargar Leaflet
-      const leafletModule = await import('leaflet');
-      const L = leafletModule.default;
-      
-      // Configurar iconos
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      });
-      
-      leafletRef.current = L;
-      console.log('✅ Leaflet cargado');
-      return L;
-    } catch (error) {
-      console.error('❌ Error cargando Leaflet:', error);
-      return null;
-    }
-  };
-
   // Inicializar mapa
-  const initializeMap = async () => {
-    if (!mapContainerRef.current || mapRef.current || !mapContainerId) return;
-    
-    const L = await loadLeaflet();
-    if (!L) return;
+  const initializeMap = () => {
+    if (!mapContainerRef.current || mapRef.current) return;
     
     try {
-      console.log('🗺️ Inicializando mapa con ID:', mapContainerId);
+      console.log('🗺️ Inicializando mapa Mapbox...');
       
-      // Asegurar que el contenedor tiene el ID correcto
-      mapContainerRef.current.id = mapContainerId;
-      
-      mapRef.current = L.map(mapContainerRef.current, {
+      mapRef.current = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: AREQUIPA_CENTER,
         zoom: 13,
-        zoomControl: true,
-        preferCanvas: true
+        language: 'es'
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19
-      }).addTo(mapRef.current);
+      // Añadir controles de navegación
+      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-      mapRef.current.on('click', async (e: any) => {
-        const { lat, lng } = e.latlng;
+      // Event listener para clicks en el mapa
+      mapRef.current.on('click', async (e) => {
+        const { lng, lat } = e.lngLat;
         
         if (isLocationInArequipa(lat, lng)) {
           console.log('📍 Ubicación seleccionada:', { lat, lng });
           
+          // Actualizar o crear marcador
           if (markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
+            markerRef.current.setLngLat([lng, lat]);
           } else {
-            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+            markerRef.current = new mapboxgl.Marker()
+              .setLngLat([lng, lat])
+              .addTo(mapRef.current!);
           }
           
           await reverseGeocode(lat, lng);
@@ -155,14 +105,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      setMapReady(true);
-      console.log('✅ Mapa inicializado correctamente');
-      
-      if (currentValue && !selectedLocation) {
-        setTimeout(() => geocodeCurrentAddress(), 500);
-      }
+      mapRef.current.on('load', () => {
+        setMapReady(true);
+        console.log('✅ Mapa Mapbox cargado correctamente');
+        
+        if (currentValue && !selectedLocation) {
+          setTimeout(() => geocodeCurrentAddress(), 500);
+        }
+      });
+
     } catch (error) {
-      console.error('❌ Error inicializando mapa:', error);
+      console.error('❌ Error inicializando mapa Mapbox:', error);
     }
   };
 
@@ -179,17 +132,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
     
     setMapReady(false);
-    setMapContainerId('');
-    console.log('🧹 Mapa limpiado');
+    console.log('🧹 Mapa Mapbox limpiado');
   };
 
-  // Effect para inicializar cuando se abre y hay ID
+  // Effect para inicializar cuando se abre
   useEffect(() => {
-    if (isOpen && mapContainerId && !mapReady) {
+    if (isOpen && !mapReady) {
       const timer = setTimeout(initializeMap, 200);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, mapContainerId]);
+  }, [isOpen]);
 
   // Effect para limpiar cuando se cierra
   useEffect(() => {
@@ -243,15 +195,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         
-        if (isLocationInArequipa(lat, lng) && mapRef.current && leafletRef.current) {
-          const L = leafletRef.current;
+        if (isLocationInArequipa(lat, lng) && mapRef.current) {
           setSelectedLocation({ lat, lng, address: currentValue });
-          mapRef.current.setView([lat, lng], 16);
+          mapRef.current.setCenter([lng, lat]);
+          mapRef.current.setZoom(16);
           
           if (markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
+            markerRef.current.setLngLat([lng, lat]);
           } else {
-            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+            markerRef.current = new mapboxgl.Marker()
+              .setLngLat([lng, lat])
+              .addTo(mapRef.current);
           }
         }
       }
@@ -273,7 +227,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       if (data.address) {
         const parts = [];
         
-        // Construir dirección más precisa
         if (data.address.house_number && data.address.road) {
           parts.push(`${data.address.road} ${data.address.house_number}`);
         } else if (data.address.road) {
@@ -288,14 +241,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           parts.push(data.address.city_district || data.address.district);
         }
         
-        // Asegurar que incluya Arequipa
         if (!parts.some(part => part.toLowerCase().includes('arequipa'))) {
           parts.push('Arequipa');
         }
         
         address = parts.join(', ');
         
-        // Si no se pudo construir una dirección, usar coordenadas con más precisión
         if (!address || address === 'Arequipa') {
           address = `Ubicación exacta: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
         }
@@ -347,20 +298,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     
     console.log('🎯 Resultado de búsqueda seleccionado:', { lat, lng });
     
-    // Obtener dirección más precisa
     await reverseGeocode(lat, lng);
     
     setSearchResults([]);
     setSearchQuery('');
     
-    if (mapRef.current && leafletRef.current) {
-      const L = leafletRef.current;
-      mapRef.current.setView([lat, lng], 17); // Zoom más cercano para mayor precisión
+    if (mapRef.current) {
+      mapRef.current.setCenter([lng, lat]);
+      mapRef.current.setZoom(17);
       
       if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng]);
+        markerRef.current.setLngLat([lng, lat]);
       } else {
-        markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+        markerRef.current = new mapboxgl.Marker()
+          .setLngLat([lng, lat])
+          .addTo(mapRef.current);
       }
     }
   };
@@ -383,7 +335,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
           timeout: 15000,
-          maximumAge: 0 // Forzar nueva lectura para mayor precisión
+          maximumAge: 0
         });
         
         const { latitude, longitude } = position.coords;
@@ -405,7 +357,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           { 
             enableHighAccuracy: true, 
             timeout: 15000,
-            maximumAge: 0 // Forzar nueva lectura para mayor precisión
+            maximumAge: 0
           }
         );
       }
@@ -425,14 +377,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     console.log('📍 Ubicación GPS exacta obtenida:', { latitude, longitude });
     
     if (isLocationInArequipa(latitude, longitude)) {
-      if (mapRef.current && leafletRef.current) {
-        const L = leafletRef.current;
-        mapRef.current.setView([latitude, longitude], 18); // Zoom máximo para precisión
+      if (mapRef.current) {
+        mapRef.current.setCenter([longitude, latitude]);
+        mapRef.current.setZoom(18);
         
         if (markerRef.current) {
-          markerRef.current.setLatLng([latitude, longitude]);
+          markerRef.current.setLngLat([longitude, latitude]);
         } else {
-          markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
+          markerRef.current = new mapboxgl.Marker()
+            .setLngLat([longitude, latitude])
+            .addTo(mapRef.current);
         }
       }
       
@@ -547,18 +501,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           )}
 
           <div className="flex-1 px-3 sm:px-4 min-h-0">
-            {!mapReady || !mapContainerId ? (
+            {!mapReady ? (
               <div className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Preparando mapa con ID único...</p>
-                  {mapContainerId && <p className="text-xs text-gray-500">ID: {mapContainerId}</p>}
+                  <p className="text-sm text-gray-600">Cargando mapa Mapbox...</p>
                 </div>
               </div>
             ) : (
               <div 
                 ref={mapContainerRef}
-                id={mapContainerId}
                 className="relative w-full h-full bg-gray-100 rounded-lg overflow-hidden border-2"
                 style={{ minHeight: '300px' }}
               />

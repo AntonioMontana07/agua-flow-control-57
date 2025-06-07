@@ -37,6 +37,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   currentValue
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -55,38 +56,44 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Inicializar mapa inmediatamente - SOLO LEAFLET
+  // Inicializar mapa
   const initializeMap = () => {
     if (!mapContainerRef.current || mapRef.current) return;
     
     try {
-      console.log('🗺️ Inicializando mapa con SOLO Leaflet...');
+      console.log('🗺️ Inicializando mapa...');
       
-      // Crear mapa básico - SOLO LEAFLET
       const map = L.map(mapContainerRef.current, {
         center: AREQUIPA_CENTER,
         zoom: 13,
         zoomControl: true,
-        attributionControl: false
+        attributionControl: true
       });
 
-      // Tiles básicos - SIN APIs EXTERNAS
+      // Tiles de OpenStreetMap (gratuito)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
-        attribution: ''
+        attribution: '© OpenStreetMap contributors'
       }).addTo(map);
 
       mapRef.current = map;
 
-      // Click en el mapa - SOLO coordenadas, SIN API
-      map.on('click', (e: L.LeafletMouseEvent) => {
+      // Click en el mapa para seleccionar ubicación
+      map.on('click', async (e: L.LeafletMouseEvent) => {
         const { lat, lng } = e.latlng;
         
         if (isLocationInArequipa(lat, lng)) {
           updateMarker(lat, lng);
-          // Crear dirección simple SIN API
-          const simpleAddress = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}, Arequipa`;
-          setSelectedLocation({ lat, lng, address: simpleAddress });
+          
+          // Obtener dirección usando Nominatim (gratuito)
+          try {
+            const address = await reverseGeocode(lat, lng);
+            setSelectedLocation({ lat, lng, address });
+          } catch (error) {
+            console.error('Error al obtener dirección:', error);
+            const fallbackAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
+            setSelectedLocation({ lat, lng, address: fallbackAddress });
+          }
         } else {
           toast({
             title: "Fuera de Arequipa",
@@ -96,9 +103,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      // Mapa listo inmediatamente
-      setMapReady(true);
-      console.log('✅ Mapa cargado con SOLO Leaflet - SIN APIs');
+      // Mapa listo
+      setTimeout(() => {
+        map.invalidateSize();
+        setMapReady(true);
+        console.log('✅ Mapa cargado correctamente');
+      }, 100);
 
     } catch (error) {
       console.error('❌ Error cargando mapa:', error);
@@ -106,6 +116,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  // Actualizar marcador en el mapa
   const updateMarker = (lat: number, lng: number) => {
     if (!mapRef.current) return;
     
@@ -114,8 +125,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } else {
       markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
     }
+    
+    mapRef.current.setView([lat, lng], 16);
   };
 
+  // Limpiar mapa
   const cleanupMap = () => {
     if (markerRef.current) {
       markerRef.current.remove();
@@ -130,21 +144,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setMapReady(false);
   };
 
-  // Effect para inicializar mapa inmediatamente
-  useEffect(() => {
-    if (isOpen && !mapRef.current) {
-      initializeMap();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      cleanupMap();
-      setSearchQuery('');
-      setSelectedLocation(null);
-    }
-  }, [isOpen]);
-
+  // Verificar si está en Arequipa
   const isLocationInArequipa = (lat: number, lng: number): boolean => {
     return lat >= AREQUIPA_BOUNDS.south && 
            lat <= AREQUIPA_BOUNDS.north && 
@@ -152,46 +152,80 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
            lng <= AREQUIPA_BOUNDS.east;
   };
 
-  // Búsqueda simple por coordenadas - SIN API
-  const searchByCoordinates = () => {
-    if (!searchQuery.trim()) return;
+  // Geocodificación inversa usando Nominatim (gratuito)
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=es`;
     
-    // Intentar parsear coordenadas
-    const coords = searchQuery.split(',').map(s => parseFloat(s.trim()));
+    const response = await fetch(url);
+    const data = await response.json();
     
-    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-      const [lat, lng] = coords;
-      
-      if (isLocationInArequipa(lat, lng)) {
-        if (mapRef.current) {
-          mapRef.current.setView([lat, lng], 17);
-          updateMarker(lat, lng);
-        }
-        
-        const simpleAddress = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}, Arequipa`;
-        setSelectedLocation({ lat, lng, address: simpleAddress });
-        setSearchQuery('');
-        
-        toast({
-          title: "Ubicación encontrada",
-          description: "Coordenadas válidas en Arequipa"
-        });
-      } else {
-        toast({
-          title: "Fuera de Arequipa",
-          description: "Las coordenadas están fuera de Arequipa",
-          variant: "destructive"
-        });
-      }
+    if (data && data.display_name) {
+      return data.display_name;
     } else {
-      toast({
-        title: "Formato inválido",
-        description: "Usa el formato: latitud, longitud (ej: -16.409, -71.537)",
-        variant: "destructive"
-      });
+      throw new Error('No se pudo obtener la dirección');
     }
   };
 
+  // Búsqueda de ubicaciones usando Nominatim
+  const searchLocation = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Arequipa, Peru')}&limit=5&accept-language=es`;
+      
+      const response = await fetch(url);
+      const results = await response.json();
+      
+      if (results && results.length > 0) {
+        const result = results[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        
+        if (isLocationInArequipa(lat, lng)) {
+          if (mapRef.current) {
+            updateMarker(lat, lng);
+          }
+          
+          setSelectedLocation({ 
+            lat, 
+            lng, 
+            address: result.display_name 
+          });
+          
+          toast({
+            title: "Ubicación encontrada",
+            description: "Ubicación encontrada en Arequipa"
+          });
+        } else {
+          toast({
+            title: "Fuera de Arequipa",
+            description: "La búsqueda no encontró resultados en Arequipa",
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "Sin resultados",
+          description: "No se encontraron resultados para la búsqueda",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error en búsqueda:', error);
+      toast({
+        title: "Error de búsqueda",
+        description: "No se pudo realizar la búsqueda",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearching(false);
+      setSearchQuery('');
+    }
+  };
+
+  // Obtener ubicación actual del GPS
   const getCurrentLocation = async () => {
     setIsGettingLocation(true);
 
@@ -218,9 +252,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         await handleLocationSuccess(latitude, longitude);
       }
     } catch (error) {
+      console.error('Error GPS:', error);
       toast({
         title: "Error de GPS",
-        description: "No se pudo obtener la ubicación",
+        description: "No se pudo obtener la ubicación actual",
         variant: "destructive"
       });
     } finally {
@@ -228,21 +263,26 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  // Manejar ubicación exitosa del GPS
   const handleLocationSuccess = async (latitude: number, longitude: number) => {
     if (isLocationInArequipa(latitude, longitude)) {
       if (mapRef.current) {
-        mapRef.current.setView([latitude, longitude], 18);
         updateMarker(latitude, longitude);
       }
       
-      // Dirección simple SIN API
-      const simpleAddress = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, Arequipa`;
-      setSelectedLocation({ lat: latitude, lng: longitude, address: simpleAddress });
-      
-      toast({
-        title: "Ubicación Obtenida",
-        description: "GPS activado correctamente"
-      });
+      try {
+        const address = await reverseGeocode(latitude, longitude);
+        setSelectedLocation({ lat: latitude, lng: longitude, address });
+        
+        toast({
+          title: "Ubicación Obtenida",
+          description: "GPS activado correctamente"
+        });
+      } catch (error) {
+        console.error('Error al obtener dirección:', error);
+        const fallbackAddress = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}, Arequipa`;
+        setSelectedLocation({ lat: latitude, lng: longitude, address: fallbackAddress });
+      }
     } else {
       toast({
         title: "Fuera de Arequipa",
@@ -252,16 +292,38 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  // Confirmar selección
   const confirmSelection = () => {
     if (selectedLocation) {
       onSelectLocation(selectedLocation.address);
       onClose();
       toast({
         title: "Ubicación Confirmada",
-        description: "Dirección actualizada"
+        description: "Dirección actualizada correctamente"
       });
     }
   };
+
+  // Effect para inicializar mapa
+  useEffect(() => {
+    if (isOpen) {
+      // Pequeño delay para asegurar que el DOM esté listo
+      const timer = setTimeout(() => {
+        initializeMap();
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // Effect para limpiar al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      cleanupMap();
+      setSearchQuery('');
+      setSelectedLocation(null);
+    }
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -275,19 +337,23 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
-                  placeholder="Buscar por coordenadas: lat, lng (ej: -16.409, -71.537)"
+                  placeholder="Buscar dirección en Arequipa..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && searchByCoordinates()}
+                  onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
                 />
                 <Button
                   size="sm"
                   variant="ghost"
                   className="absolute right-1 top-1 h-6 w-6"
-                  onClick={searchByCoordinates}
-                  disabled={!searchQuery.trim()}
+                  onClick={searchLocation}
+                  disabled={!searchQuery.trim() || isSearching}
                 >
-                  <Search className="h-4 w-4" />
+                  {isSearching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               <Button
@@ -306,23 +372,23 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              💡 Haz clic en el mapa o usa GPS para seleccionar ubicación
+              💡 Busca una dirección, usa GPS o haz clic en el mapa para seleccionar ubicación
             </p>
           </div>
 
           <div className="flex-1 px-4 min-h-0">
             {!mapReady ? (
-              <div className="w-full h-full bg-gray-100 rounded-lg border-2 flex items-center justify-center" style={{ minHeight: '300px' }}>
+              <div className="w-full h-full bg-gray-100 rounded-lg border-2 flex items-center justify-center" style={{ minHeight: '400px' }}>
                 <div className="text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-                  <p className="text-sm text-gray-600">Cargando mapa...</p>
+                  <p className="text-sm text-gray-600">Cargando mapa de Arequipa...</p>
                 </div>
               </div>
             ) : (
               <div 
                 ref={mapContainerRef}
                 className="w-full h-full bg-gray-100 rounded-lg border-2"
-                style={{ minHeight: '300px' }}
+                style={{ minHeight: '400px' }}
               />
             )}
           </div>
@@ -333,7 +399,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 <MapPin className="h-4 w-4" />
                 <span className="font-medium text-sm">Ubicación seleccionada:</span>
               </div>
-              <p className="text-sm text-gray-700">{selectedLocation.address}</p>
+              <p className="text-sm text-gray-700 break-words">{selectedLocation.address}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Coordenadas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+              </p>
             </div>
           )}
 
@@ -345,6 +414,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               onClick={confirmSelection}
               disabled={!selectedLocation}
               size="sm"
+              className="bg-green-600 hover:bg-green-700"
             >
               Confirmar Ubicación
             </Button>

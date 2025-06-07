@@ -84,7 +84,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       // Usar tiles más rápidos
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
-        attribution: false
+        attribution: '' // String vacío en lugar de false
       }).addTo(map);
 
       mapRef.current = map;

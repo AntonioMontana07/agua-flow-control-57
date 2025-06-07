@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, Navigation, AlertTriangle, Key } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import mapboxgl from 'mapbox-gl';
@@ -42,13 +42,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string>('');
-  const [mapboxToken, setMapboxToken] = useState<string>('');
-  const [showTokenInput, setShowTokenInput] = useState(false);
   const { toast } = useToast();
   
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // Token de Mapbox configurado
+  const MAPBOX_TOKEN = 'pk.eyJ1Ijoib2xpdmVyYXZlbjA1IiwiYSI6ImNtYm1zc2FicjA5M3Aya3B4OTV4cmE5ZGoifQ.rnrmg6qrzCwl4Xy7bFIw9w';
 
   // Coordenadas y límites de Arequipa
   const AREQUIPA_CENTER: [number, number] = [-71.537451, -16.409047];
@@ -59,40 +60,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Verificar si tenemos un token válido
-  useEffect(() => {
-    const savedToken = localStorage.getItem('mapbox_token');
-    if (savedToken) {
-      setMapboxToken(savedToken);
-    } else {
-      setShowTokenInput(true);
-      setMapError('Token de Mapbox requerido para mostrar el mapa');
-    }
-  }, []);
-
-  const handleTokenSubmit = () => {
-    if (mapboxToken.trim()) {
-      localStorage.setItem('mapbox_token', mapboxToken.trim());
-      setShowTokenInput(false);
-      setMapError('');
-      // Reiniciar el mapa con el nuevo token
-      if (mapRef.current) {
-        cleanupMap();
-      }
-      setTimeout(() => initializeMap(), 100);
-    }
-  };
-
   // Inicializar mapa
   const initializeMap = async () => {
-    if (!mapContainerRef.current || mapRef.current || !mapboxToken) return;
+    if (!mapContainerRef.current || mapRef.current) return;
     
     try {
       console.log('🗺️ Iniciando mapa Mapbox...');
       setMapError('');
       
       // Configurar token
-      mapboxgl.accessToken = mapboxToken;
+      mapboxgl.accessToken = MAPBOX_TOKEN;
       
       const map = new mapboxgl.Map({
         container: mapContainerRef.current,
@@ -145,14 +122,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       map.on('error', (error) => {
         console.error('❌ Error del mapa:', error);
-        setMapError('Error cargando el mapa. Verifica que el token de Mapbox sea válido.');
-        setShowTokenInput(true);
+        setMapError('Error cargando el mapa. Verifica tu conexión a internet.');
       });
 
     } catch (error) {
       console.error('❌ Error inicializando mapa:', error);
-      setMapError('Error al cargar el mapa. Verifica que el token de Mapbox sea válido.');
-      setShowTokenInput(true);
+      setMapError('Error al cargar el mapa. Verifica tu conexión a internet.');
     }
   };
 
@@ -189,11 +164,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   // Effects
   useEffect(() => {
-    if (isOpen && !mapReady && !mapRef.current && mapboxToken && !showTokenInput) {
+    if (isOpen && !mapReady && !mapRef.current) {
       const timer = setTimeout(initializeMap, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, mapboxToken, showTokenInput]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -530,34 +505,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <DialogTitle className="text-base sm:text-lg">Seleccionar Ubicación Exacta en Arequipa</DialogTitle>
           </DialogHeader>
           
-          {showTokenInput && (
-            <div className="p-4 border-b bg-orange-50">
-              <div className="flex items-center gap-3 mb-3">
-                <Key className="h-5 w-5 text-orange-600" />
-                <div>
-                  <h3 className="font-medium text-orange-800">Token de Mapbox Requerido</h3>
-                  <p className="text-sm text-orange-600">
-                    Necesitas un token público de Mapbox para mostrar el mapa.{' '}
-                    <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="underline">
-                      Obtén tu token aquí
-                    </a>
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ..."
-                  value={mapboxToken}
-                  onChange={(e) => setMapboxToken(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={handleTokenSubmit} disabled={!mapboxToken.trim()}>
-                  Confirmar
-                </Button>
-              </div>
-            </div>
-          )}
-          
           <div className="p-3 sm:p-4 pb-2 border-b">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
@@ -567,14 +514,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && searchLocations()}
                   className="pr-10 text-sm"
-                  disabled={showTokenInput}
                 />
                 <Button
                   size="sm"
                   variant="ghost"
                   className="absolute right-1 top-1 h-6 w-6 sm:h-8 sm:w-8"
                   onClick={searchLocations}
-                  disabled={isSearching || !searchQuery.trim() || showTokenInput}
+                  disabled={isSearching || !searchQuery.trim()}
                 >
                   {isSearching ? (
                     <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
@@ -587,7 +533,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 variant="default"
                 size="sm"
                 onClick={getCurrentLocation}
-                disabled={isGettingLocation || showTokenInput}
+                disabled={isGettingLocation}
                 className="gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-lg font-semibold transition-all duration-200 hover:shadow-xl hover:scale-105"
               >
                 {isGettingLocation ? (

@@ -489,19 +489,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 </Button>
               </div>
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={getCurrentLocation}
                 disabled={isGettingLocation}
-                className="gap-2 text-xs sm:text-sm px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                className="gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-lg font-semibold transition-all duration-200 hover:shadow-xl hover:scale-105"
               >
                 {isGettingLocation ? (
-                  <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                 ) : (
-                  <Navigation className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                  <Navigation className="h-4 w-4 sm:h-5 sm:w-5" />
                 )}
-                <span className="hidden sm:inline font-medium">GPS Exacto</span>
-                <span className="sm:hidden font-medium">GPS</span>
+                <span className="hidden sm:inline">GPS Exacto</span>
+                <span className="sm:hidden">GPS</span>
               </Button>
             </div>
           </div>

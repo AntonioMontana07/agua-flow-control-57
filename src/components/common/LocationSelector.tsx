@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import L from 'leaflet';
@@ -24,13 +24,6 @@ interface LocationSelectorProps {
   currentValue?: string;
 }
 
-interface SearchResult {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: any;
-}
-
 interface MapLocation {
   lat: number;
   lng: number;
@@ -44,8 +37,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   currentValue
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -64,14 +55,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Inicializar mapa inmediatamente
+  // Inicializar mapa inmediatamente - SOLO LEAFLET
   const initializeMap = () => {
     if (!mapContainerRef.current || mapRef.current) return;
     
     try {
-      console.log('🗺️ Inicializando mapa inmediatamente...');
+      console.log('🗺️ Inicializando mapa con SOLO Leaflet...');
       
-      // Crear mapa básico sin delays
+      // Crear mapa básico - SOLO LEAFLET
       const map = L.map(mapContainerRef.current, {
         center: AREQUIPA_CENTER,
         zoom: 13,
@@ -79,7 +70,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         attributionControl: false
       });
 
-      // Tiles de OpenStreetMap - más rápidos
+      // Tiles básicos - SIN APIs EXTERNAS
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
         attribution: ''
@@ -87,13 +78,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       mapRef.current = map;
 
-      // Click en el mapa
-      map.on('click', async (e: L.LeafletMouseEvent) => {
+      // Click en el mapa - SOLO coordenadas, SIN API
+      map.on('click', (e: L.LeafletMouseEvent) => {
         const { lat, lng } = e.latlng;
         
         if (isLocationInArequipa(lat, lng)) {
           updateMarker(lat, lng);
-          await reverseGeocode(lat, lng);
+          // Crear dirección simple SIN API
+          const simpleAddress = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}, Arequipa`;
+          setSelectedLocation({ lat, lng, address: simpleAddress });
         } else {
           toast({
             title: "Fuera de Arequipa",
@@ -105,11 +98,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       // Mapa listo inmediatamente
       setMapReady(true);
-      console.log('✅ Mapa cargado exitosamente');
+      console.log('✅ Mapa cargado con SOLO Leaflet - SIN APIs');
 
     } catch (error) {
       console.error('❌ Error cargando mapa:', error);
-      setMapReady(true); // Mostrar el mapa aunque haya error
+      setMapReady(true);
     }
   };
 
@@ -137,10 +130,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setMapReady(false);
   };
 
-  // Effect para inicializar mapa inmediatamente cuando se abre
+  // Effect para inicializar mapa inmediatamente
   useEffect(() => {
     if (isOpen && !mapRef.current) {
-      // Sin setTimeout - inicializar inmediatamente
       initializeMap();
     }
   }, [isOpen]);
@@ -149,7 +141,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     if (!isOpen) {
       cleanupMap();
       setSearchQuery('');
-      setSearchResults([]);
       setSelectedLocation(null);
     }
   }, [isOpen]);
@@ -161,87 +152,43 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
            lng <= AREQUIPA_BOUNDS.east;
   };
 
-  const reverseGeocode = async (lat: number, lng: number) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`
-      );
-      
-      const data = await response.json();
-      let address = '';
-
-      if (data.address) {
-        const parts = [];
-        
-        if (data.address.house_number && data.address.road) {
-          parts.push(`${data.address.road} ${data.address.house_number}`);
-        } else if (data.address.road) {
-          parts.push(data.address.road);
-        }
-        
-        if (data.address.neighbourhood || data.address.suburb) {
-          parts.push(data.address.neighbourhood || data.address.suburb);
-        }
-        
-        if (!parts.some(part => part.toLowerCase().includes('arequipa'))) {
-          parts.push('Arequipa');
-        }
-        
-        address = parts.join(', ');
-      }
-      
-      if (!address || address === 'Arequipa') {
-        address = `Ubicación: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
-      }
-
-      setSelectedLocation({ lat, lng, address });
-    } catch (error) {
-      const exactAddress = `Ubicación: ${lat.toFixed(6)}, ${lng.toFixed(6)}, Arequipa`;
-      setSelectedLocation({ lat, lng, address: exactAddress });
-    }
-  };
-
-  const searchLocations = async () => {
+  // Búsqueda simple por coordenadas - SIN API
+  const searchByCoordinates = () => {
     if (!searchQuery.trim()) return;
-
-    setIsSearching(true);
-    try {
-      const query = `${searchQuery}, Arequipa, Perú`;
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=pe&addressdetails=1`
-      );
+    
+    // Intentar parsear coordenadas
+    const coords = searchQuery.split(',').map(s => parseFloat(s.trim()));
+    
+    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+      const [lat, lng] = coords;
       
-      const data = await response.json();
-      const arequipaResults = data.filter((result: SearchResult) => {
-        const lat = parseFloat(result.lat);
-        const lng = parseFloat(result.lon);
-        return isLocationInArequipa(lat, lng);
-      });
-      
-      setSearchResults(arequipaResults);
-    } catch (error) {
+      if (isLocationInArequipa(lat, lng)) {
+        if (mapRef.current) {
+          mapRef.current.setView([lat, lng], 17);
+          updateMarker(lat, lng);
+        }
+        
+        const simpleAddress = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}, Arequipa`;
+        setSelectedLocation({ lat, lng, address: simpleAddress });
+        setSearchQuery('');
+        
+        toast({
+          title: "Ubicación encontrada",
+          description: "Coordenadas válidas en Arequipa"
+        });
+      } else {
+        toast({
+          title: "Fuera de Arequipa",
+          description: "Las coordenadas están fuera de Arequipa",
+          variant: "destructive"
+        });
+      }
+    } else {
       toast({
-        title: "Error de búsqueda",
-        description: "No se pudo realizar la búsqueda",
+        title: "Formato inválido",
+        description: "Usa el formato: latitud, longitud (ej: -16.409, -71.537)",
         variant: "destructive"
       });
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const selectSearchResult = async (result: SearchResult) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
-    
-    await reverseGeocode(lat, lng);
-    
-    setSearchResults([]);
-    setSearchQuery('');
-    
-    if (mapRef.current) {
-      mapRef.current.setView([lat, lng], 17);
-      updateMarker(lat, lng);
     }
   };
 
@@ -288,7 +235,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         updateMarker(latitude, longitude);
       }
       
-      await reverseGeocode(latitude, longitude);
+      // Dirección simple SIN API
+      const simpleAddress = `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, Arequipa`;
+      setSelectedLocation({ lat: latitude, lng: longitude, address: simpleAddress });
       
       toast({
         title: "Ubicación Obtenida",
@@ -326,23 +275,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
-                  placeholder="Buscar dirección en Arequipa..."
+                  placeholder="Buscar por coordenadas: lat, lng (ej: -16.409, -71.537)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && searchLocations()}
+                  onKeyPress={(e) => e.key === 'Enter' && searchByCoordinates()}
                 />
                 <Button
                   size="sm"
                   variant="ghost"
                   className="absolute right-1 top-1 h-6 w-6"
-                  onClick={searchLocations}
-                  disabled={isSearching || !searchQuery.trim()}
+                  onClick={searchByCoordinates}
+                  disabled={!searchQuery.trim()}
                 >
-                  {isSearching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
+                  <Search className="h-4 w-4" />
                 </Button>
               </div>
               <Button
@@ -360,26 +305,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 GPS
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              💡 Haz clic en el mapa o usa GPS para seleccionar ubicación
+            </p>
           </div>
-
-          {searchResults.length > 0 && (
-            <div className="px-4 pb-2">
-              <div className="bg-white border rounded-lg shadow-lg max-h-32 overflow-y-auto">
-                {searchResults.map((result, index) => (
-                  <button
-                    key={index}
-                    onClick={() => selectSearchResult(result)}
-                    className="w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0 text-sm"
-                  >
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-4 w-4 mt-1 text-blue-600" />
-                      <p className="text-gray-900 font-medium">{result.display_name}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="flex-1 px-4 min-h-0">
             {!mapReady ? (

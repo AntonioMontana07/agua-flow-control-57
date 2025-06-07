@@ -6,10 +6,10 @@ const config: CapacitorConfig = {
   appName: 'BIOX - Sistema de Reparto',
   webDir: 'dist',
   bundledWebRuntime: false,
-  server: {
-    url: "https://0d052641-7b9a-4737-8f01-403a821e2261.lovableproject.com?forceHideBadge=true",
-    cleartext: true
-  },
+  // server: {
+  //   url: "https://0d052641-7b9a-4737-8f01-403a821e2261.lovableproject.com?forceHideBadge=true",
+  //   cleartext: true
+  // },
   plugins: {
     LocalNotifications: {
       smallIcon: "ic_stat_icon_config_sample",
@@ -37,7 +37,7 @@ const config: CapacitorConfig = {
       "NSLocationWhenInUseUsageDescription",
       "NSLocationAlwaysAndWhenInUseUsageDescription"
     ]
-  }
+  ]
 };
 
 export default config;

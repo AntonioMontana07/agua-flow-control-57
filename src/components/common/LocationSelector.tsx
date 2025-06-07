@@ -6,8 +6,16 @@ import { Input } from '@/components/ui/input';
 import { MapPin, Search, Loader2, Navigation, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix para iconos de Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -46,15 +54,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isAutoLocating, setIsAutoLocating] = useState(false);
   const { toast } = useToast();
   
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
-
-  // Token de Mapbox configurado
-  const MAPBOX_TOKEN = 'pk.eyJ1Ijoib2xpdmVyYXZlbjA1IiwiYSI6ImNtYm1zc2FicjA5M3Aya3B4OTV4cmE5ZGoifQ.rnrmg6qrzCwl4Xy7bFIw9w';
+  const markerRef = useRef<L.Marker | null>(null);
 
   // Coordenadas y límites de Arequipa
-  const AREQUIPA_CENTER: [number, number] = [-71.537451, -16.409047];
+  const AREQUIPA_CENTER: [number, number] = [-16.409047, -71.537451]; // [lat, lng] para Leaflet
   const AREQUIPA_BOUNDS = {
     north: -16.2,
     south: -16.6,
@@ -62,45 +67,37 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     west: -71.8
   };
 
-  // Inicializar mapa
+  // Inicializar mapa con Leaflet
   const initializeMap = async () => {
     if (!mapContainerRef.current || mapRef.current) return;
     
     try {
-      console.log('🗺️ Iniciando mapa Mapbox...');
+      console.log('🗺️ Iniciando mapa con Leaflet (OpenStreetMap)...');
       setMapError('');
       
-      // Configurar token
-      mapboxgl.accessToken = MAPBOX_TOKEN;
-      
-      const map = new mapboxgl.Map({
-        container: mapContainerRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
+      // Crear mapa con Leaflet
+      const map = L.map(mapContainerRef.current, {
         center: AREQUIPA_CENTER,
         zoom: 13,
-        pitch: 0,
-        bearing: 0,
-        antialias: true
+        zoomControl: true,
+        attributionControl: true
       });
+
+      // Añadir capa de OpenStreetMap
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
 
       mapRef.current = map;
 
-      // Añadir controles de navegación
-      map.addControl(
-        new mapboxgl.NavigationControl({
-          showCompass: true,
-          showZoom: true
-        }), 
-        'top-right'
-      );
-
-      // Event listener para clicks
-      map.on('click', async (e) => {
-        const { lng, lat } = e.lngLat;
+      // Event listener para clicks en el mapa
+      map.on('click', async (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
         console.log('📍 Click en mapa:', { lat, lng });
         
         if (isLocationInArequipa(lat, lng)) {
-          updateMarker(lng, lat);
+          updateMarker(lat, lng);
           await reverseGeocode(lat, lng);
         } else {
           toast({
@@ -111,9 +108,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      // Event listeners
-      map.on('load', () => {
-        console.log('✅ Mapa cargado correctamente');
+      // Evento cuando el mapa está listo
+      map.whenReady(() => {
+        console.log('✅ Mapa Leaflet cargado correctamente');
         setMapReady(true);
         setMapError('');
         
@@ -124,9 +121,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }, 500);
       });
 
-      map.on('error', (error) => {
-        console.error('❌ Error del mapa:', error);
-        setMapError('Error cargando el mapa. Verifica tu conexión a internet.');
+      // Manejar errores de carga de tiles
+      map.on('tileerror', (error) => {
+        console.warn('⚠️ Error cargando algunas partes del mapa:', error);
+        // No mostrar error por tiles individuales
       });
 
     } catch (error) {
@@ -135,18 +133,23 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  const updateMarker = (lng: number, lat: number) => {
+  const updateMarker = (lat: number, lng: number) => {
     if (!mapRef.current) return;
     
     if (markerRef.current) {
-      markerRef.current.setLngLat([lng, lat]);
+      markerRef.current.setLatLng([lat, lng]);
     } else {
-      markerRef.current = new mapboxgl.Marker({
-        color: '#3B82F6',
-        scale: 1.2
-      })
-        .setLngLat([lng, lat])
-        .addTo(mapRef.current);
+      markerRef.current = L.marker([lat, lng], {
+        icon: L.icon({
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        })
+      }).addTo(mapRef.current);
     }
   };
 
@@ -198,7 +201,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         setHasLocationPermission(permission.location === 'granted');
         console.log('📱 Permisos móvil:', permission.location);
       } else {
-        // En web, verificamos si geolocalización está disponible
         const hasGeo = !!navigator.geolocation;
         setHasLocationPermission(hasGeo);
         console.log('🌐 Geolocalización web disponible:', hasGeo);
@@ -216,7 +218,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       if (Capacitor.isNativePlatform()) {
         const { Geolocation } = await import('@capacitor/geolocation');
         
-        // Solicitar permisos directamente
         const permission = await Geolocation.requestPermissions();
         console.log('📝 Resultado de solicitud móvil:', permission);
         
@@ -237,7 +238,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           return false;
         }
       } else {
-        // En web, solicitar ubicación directamente
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -294,9 +294,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         if (isLocationInArequipa(lat, lng) && mapRef.current) {
           console.log('✅ Dirección encontrada:', { lat, lng });
           setSelectedLocation({ lat, lng, address: currentValue });
-          mapRef.current.setCenter([lng, lat]);
-          mapRef.current.setZoom(16);
-          updateMarker(lng, lat);
+          mapRef.current.setView([lat, lng], 16);
+          updateMarker(lat, lng);
         }
       }
     } catch (error) {
@@ -392,19 +391,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery('');
     
     if (mapRef.current) {
-      mapRef.current.setCenter([lng, lat]);
-      mapRef.current.setZoom(17);
-      updateMarker(lng, lat);
+      mapRef.current.setView([lat, lng], 17);
+      updateMarker(lat, lng);
     }
   };
 
-  // Nueva función para localización automática (sin mostrar toast de error)
   const autoGetCurrentLocation = async () => {
     console.log('🔄 Iniciando localización automática GPS...');
     setIsAutoLocating(true);
 
     try {
-      // Verificar permisos primero
       if (!hasLocationPermission) {
         const granted = await requestLocationPermission();
         if (!granted) {
@@ -447,14 +443,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }
     } catch (error: any) {
       console.log('⚠️ Localización automática falló (normal):', error);
-      // No mostrar toast de error para localización automática
     } finally {
       setIsAutoLocating(false);
     }
   };
 
   const getCurrentLocation = async () => {
-    // Si no tenemos permisos, solicitarlos automáticamente
     if (!hasLocationPermission) {
       const granted = await requestLocationPermission();
       if (!granted) return;
@@ -507,15 +501,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Para localización automática (sin toast)
   const handleAutoLocationSuccess = async (latitude: number, longitude: number, accuracy?: number) => {
     console.log(`✅ Ubicación GPS automática obtenida - Precisión: ${accuracy ? Math.round(accuracy) + 'm' : 'desconocida'}`);
     
     if (isLocationInArequipa(latitude, longitude)) {
       if (mapRef.current) {
-        mapRef.current.setCenter([longitude, latitude]);
-        mapRef.current.setZoom(18);
-        updateMarker(longitude, latitude);
+        mapRef.current.setView([latitude, longitude], 18);
+        updateMarker(latitude, longitude);
       }
       
       await reverseGeocode(latitude, longitude);
@@ -525,15 +517,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Para localización manual (con toast)
   const handleLocationSuccess = async (latitude: number, longitude: number, accuracy?: number) => {
     console.log(`✅ Ubicación GPS manual obtenida - Precisión: ${accuracy ? Math.round(accuracy) + 'm' : 'desconocida'}`);
     
     if (isLocationInArequipa(latitude, longitude)) {
       if (mapRef.current) {
-        mapRef.current.setCenter([longitude, latitude]);
-        mapRef.current.setZoom(18);
-        updateMarker(longitude, latitude);
+        mapRef.current.setView([latitude, longitude], 18);
+        updateMarker(latitude, longitude);
       }
       
       await reverseGeocode(latitude, longitude);

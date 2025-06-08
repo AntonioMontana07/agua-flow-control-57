@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -329,99 +328,98 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden">
-        <div className="flex flex-col h-full">
-          <DialogHeader className="p-4 pb-2 border-b">
-            <DialogTitle>🗺️ Seleccionar Ubicación</DialogTitle>
-          </DialogHeader>
-          
-          <div className="p-4 pb-2 border-b space-y-3">
-            {/* Buscador único */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  placeholder="Buscar ubicación..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
-                />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute right-1 top-1 h-6 w-6"
-                  onClick={searchLocation}
-                  disabled={!searchQuery.trim() || isSearching}
-                >
-                  {isSearching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+      <DialogContent className="w-[90vw] max-w-2xl h-[85vh] max-h-[600px] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="p-3 pb-2 border-b flex-shrink-0">
+          <DialogTitle className="text-base sm:text-lg">🗺️ Seleccionar Ubicación</DialogTitle>
+        </DialogHeader>
+        
+        <div className="p-3 pb-2 border-b flex-shrink-0">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                placeholder="Buscar ubicación..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
+                className="text-sm"
+              />
               <Button
-                variant="default"
                 size="sm"
-                onClick={getCurrentLocation}
-                disabled={isGettingLocation}
-                className="gap-2"
+                variant="ghost"
+                className="absolute right-1 top-1 h-6 w-6"
+                onClick={searchLocation}
+                disabled={!searchQuery.trim() || isSearching}
               >
-                {isGettingLocation ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {isSearching ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <Navigation className="h-4 w-4" />
+                  <Search className="h-3 w-3" />
                 )}
-                Mi Ubicación
               </Button>
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              💡 Busca una ubicación, usa "Mi Ubicación" o haz clic directamente en el mapa
-            </p>
-          </div>
-
-          <div className="flex-1 px-4 min-h-0">
-            <div className="relative w-full h-full bg-gray-100 rounded-lg border-2 overflow-hidden" style={{ minHeight: '400px' }}>
-              {isLoadingMap && (
-                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-                    <p className="text-sm text-gray-600">Cargando mapa...</p>
-                  </div>
-                </div>
-              )}
-              <div 
-                ref={mapContainerRef}
-                className="w-full h-full"
-                style={{ minHeight: '400px' }}
-              />
-            </div>
-          </div>
-
-          {selectedLocation && (
-            <div className="px-4 py-2 border-t bg-gray-50">
-              <div className="flex items-center gap-2 text-green-600 mb-1">
-                <MapPin className="h-4 w-4" />
-                <span className="font-medium text-sm">Ubicación seleccionada:</span>
-              </div>
-              <p className="text-sm text-gray-700 break-words">{selectedLocation.address}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                📍 Coordenadas exactas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
-              </p>
-            </div>
-          )}
-
-          <div className="flex justify-center gap-2 p-4 pt-2 border-t">
-            <Button 
-              onClick={confirmSelection}
-              disabled={!selectedLocation}
+            <Button
+              variant="default"
               size="sm"
-              className="bg-green-600 hover:bg-green-700 gap-2"
+              onClick={getCurrentLocation}
+              disabled={isGettingLocation}
+              className="gap-1 px-2 sm:px-3"
             >
-              <MapPin className="h-4 w-4" />
-              Establecer Ubicación
+              {isGettingLocation ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Navigation className="h-3 w-3" />
+              )}
+              <span className="hidden sm:inline">Mi Ubicación</span>
+              <span className="sm:hidden">GPS</span>
             </Button>
           </div>
+
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 Busca una ubicación, usa GPS o haz clic directamente en el mapa
+          </p>
+        </div>
+
+        <div className="flex-1 px-3 min-h-0 overflow-hidden">
+          <div className="relative w-full h-full bg-gray-100 rounded-lg border overflow-hidden" style={{ minHeight: '250px' }}>
+            {isLoadingMap && (
+              <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
+                <div className="text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-600" />
+                  <p className="text-xs text-gray-600">Cargando mapa...</p>
+                </div>
+              </div>
+            )}
+            <div 
+              ref={mapContainerRef}
+              className="w-full h-full"
+              style={{ minHeight: '250px' }}
+            />
+          </div>
+        </div>
+
+        {selectedLocation && (
+          <div className="px-3 py-2 border-t bg-gray-50 flex-shrink-0">
+            <div className="flex items-center gap-2 text-green-600 mb-1">
+              <MapPin className="h-3 w-3" />
+              <span className="font-medium text-xs">Ubicación seleccionada:</span>
+            </div>
+            <p className="text-xs text-gray-700 break-words line-clamp-2">{selectedLocation.address}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              📍 {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-center p-3 pt-2 border-t flex-shrink-0">
+          <Button 
+            onClick={confirmSelection}
+            disabled={!selectedLocation}
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 gap-2 w-full sm:w-auto"
+          >
+            <MapPin className="h-4 w-4" />
+            Establecer Ubicación
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

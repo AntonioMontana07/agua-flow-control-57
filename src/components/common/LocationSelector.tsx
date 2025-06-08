@@ -135,6 +135,35 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const selectedMarkerRef = useRef<L.Marker | null>(null);
   const currentLocationMarkerRef = useRef<L.Marker | null>(null);
 
+  // Obtener posición GPS del usuario con máxima precisión
+  const getCurrentPosition = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocalización no soportada'));
+        return;
+      }
+
+      console.log('📱 Solicitando ubicación GPS con máxima precisión...');
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log(`📍 GPS obtenido - Precisión: ${position.coords.accuracy}m`);
+          console.log(`📍 Coordenadas: ${position.coords.latitude}, ${position.coords.longitude}`);
+          resolve(position);
+        },
+        (error) => {
+          console.error('❌ Error GPS:', error);
+          reject(error);
+        },
+        { 
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        }
+      );
+    });
+  };
+
   // Inicializar mapa con Leaflet
   const initializeMap = async () => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -143,25 +172,27 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setIsLoadingMap(true);
 
     try {
-      // Obtener ubicación actual del usuario
+      // Obtener ubicación actual del usuario con máxima precisión
       const position = await getCurrentPosition();
-      const { latitude: lat, longitude: lng } = position.coords;
+      const { latitude: lat, longitude: lng, accuracy } = position.coords;
+
+      console.log(`✅ Ubicación GPS precisa obtenida - Precisión: ${accuracy}m`);
 
       // Crear mapa centrado en la ubicación actual
-      const map = L.map(mapContainerRef.current).setView([lat, lng], 15);
+      const map = L.map(mapContainerRef.current).setView([lat, lng], 18);
       mapRef.current = map;
 
       // Agregar capa de OpenStreetMap
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
+        maxZoom: 20
       }).addTo(map);
 
       // Agregar marcador "yo" (ubicación actual fija)
       const personIcon = createPersonIcon();
       const currentLocationMarker = L.marker([lat, lng], { icon: personIcon })
         .addTo(map)
-        .bindPopup('📍 Tu ubicación actual');
+        .bindPopup(`📍 Tu ubicación actual<br>Precisión: ${Math.round(accuracy)}m`);
 
       currentLocationMarkerRef.current = currentLocationMarker;
 
@@ -204,7 +235,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       console.log('✅ Mapa Leaflet inicializado correctamente');
       toast({
         title: "🗺️ Mapa cargado",
-        description: "Ubicación actual detectada"
+        description: `Ubicación GPS detectada (precisión: ${Math.round(accuracy)}m)`
       });
 
     } catch (error) {
@@ -230,26 +261,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } finally {
       setIsLoadingMap(false);
     }
-  };
-
-  // Obtener posición GPS del usuario
-  const getCurrentPosition = (): Promise<GeolocationPosition> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocalización no soportada'));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        resolve,
-        reject,
-        { 
-          enableHighAccuracy: true, 
-          timeout: 10000,
-          maximumAge: 60000
-        }
-      );
-    });
   };
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
@@ -327,18 +338,26 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Obtener ubicación GPS actual
+  // Obtener ubicación GPS actual con máxima precisión
   const getCurrentLocation = async () => {
     setIsGettingLocation(true);
-    console.log('📱 Obteniendo ubicación GPS...');
+    console.log('📱 Obteniendo ubicación GPS con máxima precisión...');
 
     try {
       const position = await getCurrentPosition();
-      const { latitude, longitude } = position.coords;
+      const { latitude, longitude, accuracy } = position.coords;
+      
+      console.log(`✅ Nueva ubicación GPS - Precisión: ${accuracy}m`);
       
       // Centrar mapa en ubicación actual
       if (mapRef.current) {
-        mapRef.current.setView([latitude, longitude], 16);
+        mapRef.current.setView([latitude, longitude], 18);
+        
+        // Actualizar marcador "yo" con nueva ubicación precisa
+        if (currentLocationMarkerRef.current) {
+          currentLocationMarkerRef.current.setLatLng([latitude, longitude]);
+          currentLocationMarkerRef.current.bindPopup(`📍 Tu ubicación actual<br>Precisión: ${Math.round(accuracy)}m`);
+        }
         
         // Mover SOLO el marcador de ubicación seleccionada a la ubicación actual
         if (selectedMarkerRef.current) {
@@ -350,8 +369,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setSelectedLocation({ lat: latitude, lng: longitude, address });
       
       toast({
-        title: "📱 Ubicación actualizada",
-        description: "GPS detectado correctamente"
+        title: "📱 Ubicación GPS actualizada",
+        description: `Precisión: ${Math.round(accuracy)}m`
       });
       
     } catch (error) {

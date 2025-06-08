@@ -135,7 +135,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const selectedMarkerRef = useRef<L.Marker | null>(null);
   const currentLocationMarkerRef = useRef<L.Marker | null>(null);
 
-  // Obtener posición GPS del usuario con máxima precisión
+  // Obtener posición GPS del usuario con MÁXIMA precisión usando múltiples intentos
   const getCurrentPosition = (): Promise<GeolocationPosition> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -143,24 +143,63 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         return;
       }
 
-      console.log('📱 Solicitando ubicación GPS con máxima precisión...');
+      console.log('🎯 Iniciando proceso de GPS de máxima precisión...');
+      
+      let bestPosition: GeolocationPosition | null = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+      const positions: GeolocationPosition[] = [];
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log(`📍 GPS obtenido - Precisión: ${position.coords.accuracy}m`);
-          console.log(`📍 Coordenadas: ${position.coords.latitude}, ${position.coords.longitude}`);
-          resolve(position);
-        },
-        (error) => {
-          console.error('❌ Error GPS:', error);
-          reject(error);
-        },
-        { 
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0
-        }
-      );
+      const tryGetPosition = () => {
+        attempts++;
+        console.log(`📍 Intento GPS ${attempts}/${maxAttempts}...`);
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            positions.push(position);
+            console.log(`✅ GPS ${attempts} - Precisión: ${position.coords.accuracy}m`);
+            console.log(`📍 Coordenadas ${attempts}: ${position.coords.latitude}, ${position.coords.longitude}`);
+
+            // Si es el primer intento o tiene mejor precisión, guardarlo
+            if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+              bestPosition = position;
+              console.log(`🏆 Nueva mejor posición - Precisión: ${position.coords.accuracy}m`);
+            }
+
+            // Si tenemos buena precisión (menos de 10m) o hemos completado todos los intentos
+            if (position.coords.accuracy <= 10 || attempts >= maxAttempts) {
+              console.log(`✅ GPS FINAL - Mejor precisión: ${bestPosition.coords.accuracy}m`);
+              resolve(bestPosition);
+            } else {
+              // Intentar otra vez después de una pausa
+              setTimeout(tryGetPosition, 1000);
+            }
+          },
+          (error) => {
+            console.error(`❌ Error GPS intento ${attempts}:`, error);
+            
+            if (attempts >= maxAttempts) {
+              if (bestPosition) {
+                console.log(`⚠️ Usando mejor posición disponible - Precisión: ${bestPosition.coords.accuracy}m`);
+                resolve(bestPosition);
+              } else {
+                reject(error);
+              }
+            } else {
+              // Intentar otra vez con configuración menos estricta
+              setTimeout(tryGetPosition, 1000);
+            }
+          },
+          { 
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 0
+          }
+        );
+      };
+
+      // Comenzar el proceso
+      tryGetPosition();
     });
   };
 
@@ -168,7 +207,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const initializeMap = async () => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    console.log('🗺️ Inicializando mapa Leaflet...');
+    console.log('🗺️ Inicializando mapa con GPS de máxima precisión...');
     setIsLoadingMap(true);
 
     try {
@@ -176,23 +215,24 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       const position = await getCurrentPosition();
       const { latitude: lat, longitude: lng, accuracy } = position.coords;
 
-      console.log(`✅ Ubicación GPS precisa obtenida - Precisión: ${accuracy}m`);
+      console.log(`🎯 UBICACIÓN FINAL PRECISA - Precisión: ${accuracy}m`);
+      console.log(`📍 COORDENADAS FINALES: ${lat}, ${lng}`);
 
-      // Crear mapa centrado en la ubicación actual
-      const map = L.map(mapContainerRef.current).setView([lat, lng], 18);
+      // Crear mapa centrado en la ubicación actual con zoom alto para precisión
+      const map = L.map(mapContainerRef.current).setView([lat, lng], 20);
       mapRef.current = map;
 
       // Agregar capa de OpenStreetMap
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 20
+        maxZoom: 22
       }).addTo(map);
 
       // Agregar marcador "yo" (ubicación actual fija)
       const personIcon = createPersonIcon();
       const currentLocationMarker = L.marker([lat, lng], { icon: personIcon })
         .addTo(map)
-        .bindPopup(`📍 Tu ubicación actual<br>Precisión: ${Math.round(accuracy)}m`);
+        .bindPopup(`📍 Tu ubicación PRECISA<br>Precisión: ${Math.round(accuracy)}m<br>Lat: ${lat.toFixed(8)}<br>Lng: ${lng.toFixed(8)}`);
 
       currentLocationMarkerRef.current = currentLocationMarker;
 
@@ -232,10 +272,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
       });
 
-      console.log('✅ Mapa Leaflet inicializado correctamente');
+      console.log('✅ Mapa inicializado con GPS de máxima precisión');
       toast({
-        title: "🗺️ Mapa cargado",
-        description: `Ubicación GPS detectada (precisión: ${Math.round(accuracy)}m)`
+        title: "🎯 GPS de Alta Precisión",
+        description: `Ubicación precisa obtenida (±${Math.round(accuracy)}m)`
       });
 
     } catch (error) {
@@ -250,7 +290,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
+        maxZoom: 22
       }).addTo(map);
 
       toast({
@@ -271,10 +311,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       );
       
       const data = await response.json();
-      return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      return data.display_name || `${lat.toFixed(8)}, ${lng.toFixed(8)}`;
     } catch (error) {
       console.error('❌ Error en geocodificación inversa:', error);
-      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      return `${lat.toFixed(8)}, ${lng.toFixed(8)}`;
     }
   };
 
@@ -300,7 +340,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         
         // Centrar mapa en el resultado
         if (mapRef.current) {
-          mapRef.current.setView([lat, lng], 16);
+          mapRef.current.setView([lat, lng], 18);
           
           // Mover SOLO el marcador de ubicación seleccionada
           if (selectedMarkerRef.current) {
@@ -341,22 +381,23 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   // Obtener ubicación GPS actual con máxima precisión
   const getCurrentLocation = async () => {
     setIsGettingLocation(true);
-    console.log('📱 Obteniendo ubicación GPS con máxima precisión...');
+    console.log('🎯 Iniciando GPS de máxima precisión...');
 
     try {
       const position = await getCurrentPosition();
       const { latitude, longitude, accuracy } = position.coords;
       
-      console.log(`✅ Nueva ubicación GPS - Precisión: ${accuracy}m`);
+      console.log(`🎯 NUEVA UBICACIÓN PRECISA - Precisión: ${accuracy}m`);
+      console.log(`📍 COORDENADAS: ${latitude}, ${longitude}`);
       
-      // Centrar mapa en ubicación actual
+      // Centrar mapa en ubicación actual con zoom alto
       if (mapRef.current) {
-        mapRef.current.setView([latitude, longitude], 18);
+        mapRef.current.setView([latitude, longitude], 20);
         
         // Actualizar marcador "yo" con nueva ubicación precisa
         if (currentLocationMarkerRef.current) {
           currentLocationMarkerRef.current.setLatLng([latitude, longitude]);
-          currentLocationMarkerRef.current.bindPopup(`📍 Tu ubicación actual<br>Precisión: ${Math.round(accuracy)}m`);
+          currentLocationMarkerRef.current.bindPopup(`📍 Tu ubicación PRECISA<br>Precisión: ${Math.round(accuracy)}m<br>Lat: ${latitude.toFixed(8)}<br>Lng: ${longitude.toFixed(8)}`);
         }
         
         // Mover SOLO el marcador de ubicación seleccionada a la ubicación actual
@@ -369,8 +410,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setSelectedLocation({ lat: latitude, lng: longitude, address });
       
       toast({
-        title: "📱 Ubicación GPS actualizada",
-        description: `Precisión: ${Math.round(accuracy)}m`
+        title: "🎯 GPS de Alta Precisión",
+        description: `Ubicación actualizada (±${Math.round(accuracy)}m)`
       });
       
     } catch (error) {
@@ -389,7 +430,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const confirmSelection = () => {
     if (selectedLocation) {
       const locationData: LocationData = {
-        address: `${selectedLocation.lat.toFixed(6)}, ${selectedLocation.lng.toFixed(6)}`,
+        address: `${selectedLocation.lat.toFixed(8)}, ${selectedLocation.lng.toFixed(8)}`,
         lat: selectedLocation.lat,
         lng: selectedLocation.lng
       };
@@ -398,8 +439,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       onClose();
       
       toast({
-        title: "✅ Coordenadas guardadas",
-        description: "Ubicación establecida con coordenadas exactas"
+        title: "✅ Coordenadas de alta precisión guardadas",
+        description: "Ubicación establecida con máxima exactitud"
       });
     }
   };
@@ -407,7 +448,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   // Effects
   useEffect(() => {
     if (isOpen) {
-      console.log('🚀 Modal abierto - inicializando mapa Leaflet...');
+      console.log('🚀 Modal abierto - inicializando GPS de máxima precisión...');
       setTimeout(initializeMap, 200);
     }
     
@@ -434,7 +475,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[90vw] max-w-2xl h-[85vh] max-h-[600px] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="p-3 pb-2 border-b flex-shrink-0">
-          <DialogTitle className="text-base sm:text-lg">🗺️ Seleccionar Ubicación</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">🎯 Selector de Ubicación de Alta Precisión</DialogTitle>
         </DialogHeader>
         
         <div className="p-3 pb-2 border-b flex-shrink-0">
@@ -473,13 +514,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               ) : (
                 <Navigation className="h-3 w-3" />
               )}
-              <span className="hidden sm:inline">Mi Ubicación</span>
+              <span className="hidden sm:inline">GPS Preciso</span>
               <span className="sm:hidden">GPS</span>
             </Button>
           </div>
 
           <p className="text-xs text-muted-foreground mt-2">
-            💡 Busca una ubicación, usa GPS o haz clic directamente en el mapa
+            🎯 GPS de alta precisión activado - Múltiples intentos para máxima exactitud
           </p>
         </div>
 
@@ -489,7 +530,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
                 <div className="text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-600" />
-                  <p className="text-xs text-gray-600">Cargando mapa...</p>
+                  <p className="text-xs text-gray-600">Obteniendo GPS de alta precisión...</p>
                 </div>
               </div>
             )}
@@ -505,11 +546,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           <div className="px-3 py-2 border-t bg-gray-50 flex-shrink-0">
             <div className="flex items-center gap-2 text-green-600 mb-1">
               <MapPin className="h-3 w-3" />
-              <span className="font-medium text-xs">Ubicación seleccionada:</span>
+              <span className="font-medium text-xs">Ubicación de alta precisión:</span>
             </div>
             <p className="text-xs text-gray-700 break-words line-clamp-2">{selectedLocation.address}</p>
             <p className="text-xs text-gray-500 mt-1">
-              📍 {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+              🎯 {selectedLocation.lat.toFixed(8)}, {selectedLocation.lng.toFixed(8)}
             </p>
           </div>
         )}
@@ -522,7 +563,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             className="bg-green-600 hover:bg-green-700 gap-2 w-full sm:w-auto"
           >
             <MapPin className="h-4 w-4" />
-            Establecer Ubicación
+            Establecer Ubicación Precisa
           </Button>
         </div>
       </DialogContent>

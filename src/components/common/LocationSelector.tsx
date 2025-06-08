@@ -5,6 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MapPin, Search, Loader2, Navigation } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix para los iconos de Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 interface LocationSelectorProps {
   isOpen: boolean;
@@ -29,182 +39,141 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
+  const [isLoadingMap, setIsLoadingMap] = useState(true);
   const { toast } = useToast();
   
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
-  // Coordenadas de Arequipa
-  const AREQUIPA_CENTER = { lat: -16.409047, lng: -71.537451 };
+  // Inicializar mapa con Leaflet
+  const initializeMap = async () => {
+    if (!mapContainerRef.current || mapRef.current) return;
 
-  // Crear mapa interactivo simple
-  const createInteractiveMap = () => {
-    if (!mapContainerRef.current) {
-      console.log('❌ No hay contenedor para el mapa');
-      return;
-    }
+    console.log('🗺️ Inicializando mapa Leaflet...');
+    setIsLoadingMap(true);
 
-    console.log('🗺️ Creando mapa interactivo...');
-    
-    // Limpiar contenedor
-    mapContainerRef.current.innerHTML = '';
-    
-    // Crear contenedor del mapa
-    const mapDiv = document.createElement('div');
-    mapDiv.style.cssText = `
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-      border-radius: 8px;
-      position: relative;
-      cursor: crosshair;
-      overflow: hidden;
-      border: 2px solid #2196f3;
-      min-height: 400px;
-    `;
-    
-    // Agregar grid de calles
-    const grid = document.createElement('div');
-    grid.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: 
-        linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.6;
-    `;
-    mapDiv.appendChild(grid);
-    
-    // Info central
-    const info = document.createElement('div');
-    info.style.cssText = `
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(255,255,255,0.95);
-      padding: 20px;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      border: 2px solid #4caf50;
-      max-width: 280px;
-      z-index: 5;
-    `;
-    
-    info.innerHTML = `
-      <div style="color: #4caf50; font-size: 32px; margin-bottom: 12px;">📍</div>
-      <div style="font-weight: 600; font-size: 16px; color: #333; margin-bottom: 8px;">Mapa de Arequipa</div>
-      <div style="font-size: 14px; color: #666; margin-bottom: 12px;">Haz clic para seleccionar ubicación</div>
-      <div id="coords" style="font-size: 12px; color: #888; background: #f5f5f5; padding: 8px; border-radius: 6px;">
-        📌 ${AREQUIPA_CENTER.lat.toFixed(4)}, ${AREQUIPA_CENTER.lng.toFixed(4)}
-      </div>
-    `;
-    
-    mapDiv.appendChild(info);
-    
-    // Puntos de referencia
-    const landmarks = [
-      { x: '20%', y: '30%', name: 'Centro Histórico', color: '#ff5722' },
-      { x: '70%', y: '40%', name: 'Cayma', color: '#ff9800' },
-      { x: '40%', y: '70%', name: 'Cerro Colorado', color: '#795548' },
-      { x: '60%', y: '20%', name: 'Yanahuara', color: '#607d8b' }
-    ];
-    
-    landmarks.forEach(landmark => {
-      const point = document.createElement('div');
-      point.style.cssText = `
-        position: absolute;
-        top: ${landmark.y};
-        left: ${landmark.x};
-        width: 8px;
-        height: 8px;
-        background: ${landmark.color};
-        border-radius: 50%;
-        border: 2px solid white;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        z-index: 3;
-      `;
-      point.title = landmark.name;
-      mapDiv.appendChild(point);
-    });
-    
-    // Evento de click
-    mapDiv.addEventListener('click', (e) => {
-      const rect = mapDiv.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      // Calcular coordenadas
-      const lat = AREQUIPA_CENTER.lat + (0.5 - y / rect.height) * 0.1;
-      const lng = AREQUIPA_CENTER.lng + (x / rect.width - 0.5) * 0.1;
-      
-      console.log(`🎯 Click en: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-      
-      // Actualizar display de coordenadas
-      const coordsDiv = info.querySelector('#coords');
-      if (coordsDiv) {
-        coordsDiv.innerHTML = `📌 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      }
-      
-      // Crear dirección
-      const address = `Ubicación en Arequipa: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    try {
+      // Obtener ubicación actual del usuario
+      const position = await getCurrentPosition();
+      const { latitude: lat, longitude: lng } = position.coords;
+
+      // Crear mapa centrado en la ubicación actual
+      const map = L.map(mapContainerRef.current).setView([lat, lng], 15);
+      mapRef.current = map;
+
+      // Agregar capa de OpenStreetMap
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Agregar marcador en la ubicación actual
+      const currentLocationMarker = L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup('📍 Tu ubicación actual')
+        .openPopup();
+
+      markerRef.current = currentLocationMarker;
+
+      // Obtener dirección de la ubicación actual
+      const address = await reverseGeocode(lat, lng);
       setSelectedLocation({ lat, lng, address });
-      
-      // Remover marcador anterior
-      const oldMarker = mapDiv.querySelector('.user-marker');
-      if (oldMarker) oldMarker.remove();
-      
-      // Agregar nuevo marcador
-      const marker = document.createElement('div');
-      marker.className = 'user-marker';
-      marker.style.cssText = `
-        position: absolute;
-        top: ${y}px;
-        left: ${x}px;
-        width: 16px;
-        height: 16px;
-        background: #4caf50;
-        border: 3px solid white;
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
-        z-index: 10;
-        animation: pulse 1.5s ease-in-out infinite;
-      `;
-      
-      mapDiv.appendChild(marker);
-      
-      // Agregar animación
-      if (!document.querySelector('#marker-animation')) {
-        const style = document.createElement('style');
-        style.id = 'marker-animation';
-        style.textContent = `
-          @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.2); }
-            100% { transform: translate(-50%, -50%) scale(1); }
+
+      // Event listener para clicks en el mapa
+      map.on('click', async (e) => {
+        const { lat: clickLat, lng: clickLng } = e.latlng;
+        console.log(`🎯 Click en mapa: ${clickLat}, ${clickLng}`);
+
+        try {
+          // Mover marcador a la nueva ubicación
+          if (markerRef.current) {
+            markerRef.current.setLatLng([clickLat, clickLng]);
+          } else {
+            markerRef.current = L.marker([clickLat, clickLng]).addTo(map);
           }
-        `;
-        document.head.appendChild(style);
-      }
-      
-      toast({
-        title: "📍 Ubicación seleccionada",
-        description: "Haz clic en 'Confirmar' para guardar"
+
+          // Obtener dirección de la nueva ubicación
+          const newAddress = await reverseGeocode(clickLat, clickLng);
+          setSelectedLocation({ lat: clickLat, lng: clickLng, address: newAddress });
+
+          toast({
+            title: "📍 Nueva ubicación seleccionada",
+            description: "Ubicación actualizada en el mapa"
+          });
+        } catch (error) {
+          console.error('❌ Error al procesar click:', error);
+        }
       });
-    });
-    
-    // Agregar al contenedor
-    mapContainerRef.current.appendChild(mapDiv);
-    console.log('✅ Mapa creado exitosamente');
+
+      console.log('✅ Mapa Leaflet inicializado correctamente');
+      toast({
+        title: "🗺️ Mapa cargado",
+        description: "Ubicación actual detectada"
+      });
+
+    } catch (error) {
+      console.error('❌ Error al inicializar mapa:', error);
+      
+      // Fallback: mapa centrado en una ubicación por defecto
+      const defaultLat = -12.0464;
+      const defaultLng = -77.0428; // Lima, Perú
+      
+      const map = L.map(mapContainerRef.current).setView([defaultLat, defaultLng], 10);
+      mapRef.current = map;
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      toast({
+        title: "⚠️ Ubicación no disponible",
+        description: "Mapa cargado en ubicación por defecto. Haz clic para seleccionar",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingMap(false);
+    }
   };
 
-  // Búsqueda con Nominatim
+  // Obtener posición GPS del usuario
+  const getCurrentPosition = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocalización no soportada'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        { 
+          enableHighAccuracy: true, 
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+    });
+  };
+
+  // Geocodificación inversa usando Nominatim
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        { headers: { 'User-Agent': 'BIOX LocationSelector/1.0' } }
+      );
+      
+      const data = await response.json();
+      return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    } catch (error) {
+      console.error('❌ Error en geocodificación inversa:', error);
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+  };
+
+  // Búsqueda de ubicaciones
   const searchLocation = async () => {
     if (!searchQuery.trim()) return;
     
@@ -212,11 +181,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     console.log(`🔍 Buscando: "${searchQuery}"`);
     
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Arequipa, Peru')}&limit=1`;
-      
-      const response = await fetch(url, {
-        headers: { 'User-Agent': 'LocationSelector/1.0' }
-      });
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&addressdetails=1`,
+        { headers: { 'User-Agent': 'BIOX LocationSelector/1.0' } }
+      );
       
       const results = await response.json();
       
@@ -224,6 +192,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const result = results[0];
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
+        
+        // Centrar mapa en el resultado
+        if (mapRef.current) {
+          mapRef.current.setView([lat, lng], 16);
+          
+          // Mover marcador
+          if (markerRef.current) {
+            markerRef.current.setLatLng([lat, lng]);
+          } else {
+            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+          }
+        }
         
         setSelectedLocation({ 
           lat, 
@@ -233,12 +213,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         
         toast({
           title: "✅ Ubicación encontrada",
-          description: "Ubicación encontrada correctamente"
+          description: "Resultado mostrado en el mapa"
         });
       } else {
         toast({
           title: "❌ Sin resultados",
-          description: "No se encontraron resultados",
+          description: "No se encontraron resultados para la búsqueda",
           variant: "destructive"
         });
       }
@@ -255,34 +235,40 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // GPS
+  // Obtener ubicación GPS actual
   const getCurrentLocation = async () => {
     setIsGettingLocation(true);
-    console.log('📱 Obteniendo GPS...');
+    console.log('📱 Obteniendo ubicación GPS...');
 
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { 
-          enableHighAccuracy: true, 
-          timeout: 15000 
-        });
-      });
-      
+      const position = await getCurrentPosition();
       const { latitude, longitude } = position.coords;
-      const address = `Ubicación GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, Arequipa`;
       
+      // Centrar mapa en ubicación actual
+      if (mapRef.current) {
+        mapRef.current.setView([latitude, longitude], 16);
+        
+        // Mover marcador
+        if (markerRef.current) {
+          markerRef.current.setLatLng([latitude, longitude]);
+        } else {
+          markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
+        }
+      }
+      
+      const address = await reverseGeocode(latitude, longitude);
       setSelectedLocation({ lat: latitude, lng: longitude, address });
       
       toast({
-        title: "📱 GPS obtenido",
-        description: "Ubicación GPS detectada"
+        title: "📱 Ubicación actualizada",
+        description: "GPS detectado correctamente"
       });
       
     } catch (error) {
       console.error('❌ Error GPS:', error);
       toast({
         title: "❌ Error de GPS",
-        description: "No se pudo obtener la ubicación",
+        description: "No se pudo obtener la ubicación actual",
         variant: "destructive"
       });
     } finally {
@@ -305,15 +291,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   // Effects
   useEffect(() => {
     if (isOpen) {
-      console.log('🚀 Modal abierto - creando mapa...');
-      setTimeout(createInteractiveMap, 100);
+      console.log('🚀 Modal abierto - inicializando mapa Leaflet...');
+      setTimeout(initializeMap, 200);
     }
+    
+    return () => {
+      if (mapRef.current) {
+        console.log('🧹 Limpiando mapa Leaflet...');
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
       setSelectedLocation(null);
+      setIsLoadingMap(true);
     }
   }, [isOpen]);
 
@@ -322,14 +318,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <DialogContent className="w-[95vw] max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden">
         <div className="flex flex-col h-full">
           <DialogHeader className="p-4 pb-2 border-b">
-            <DialogTitle>📍 Seleccionar Ubicación en Arequipa</DialogTitle>
+            <DialogTitle>🗺️ Seleccionar Ubicación</DialogTitle>
           </DialogHeader>
           
           <div className="p-4 pb-2 border-b">
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
-                  placeholder="Buscar dirección en Arequipa..."
+                  placeholder="Buscar ubicación..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && searchLocation()}
@@ -360,20 +356,30 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 ) : (
                   <Navigation className="h-4 w-4" />
                 )}
-                GPS
+                Mi Ubicación
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              💡 Busca una dirección, usa GPS o haz clic en el mapa
+              💡 Busca una dirección, usa "Mi Ubicación" o haz clic en el mapa
             </p>
           </div>
 
           <div className="flex-1 px-4 min-h-0">
-            <div 
-              ref={mapContainerRef}
-              className="w-full h-full bg-gray-100 rounded-lg border-2"
-              style={{ minHeight: '400px' }}
-            />
+            <div className="relative w-full h-full bg-gray-100 rounded-lg border-2 overflow-hidden" style={{ minHeight: '400px' }}>
+              {isLoadingMap && (
+                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
+                    <p className="text-sm text-gray-600">Cargando mapa...</p>
+                  </div>
+                </div>
+              )}
+              <div 
+                ref={mapContainerRef}
+                className="w-full h-full"
+                style={{ minHeight: '400px' }}
+              />
+            </div>
           </div>
 
           {selectedLocation && (

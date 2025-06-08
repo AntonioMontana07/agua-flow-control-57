@@ -15,10 +15,16 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+interface LocationData {
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 interface LocationSelectorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectLocation: (address: string) => void;
+  onSelectLocation: (locationData: LocationData) => void;
   currentValue?: string;
 }
 
@@ -302,11 +308,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   // Confirmar selección
   const confirmSelection = () => {
     if (selectedLocation) {
-      onSelectLocation(selectedLocation.address);
+      // Enviar datos completos con coordenadas exactas
+      const locationData: LocationData = {
+        address: selectedLocation.address,
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng
+      };
+      
+      onSelectLocation(locationData);
       onClose();
+      
       toast({
         title: "✅ Ubicación confirmada",
-        description: "Dirección guardada correctamente"
+        description: "Dirección y coordenadas guardadas correctamente"
       });
     }
   };
@@ -438,7 +452,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               <p className="text-sm text-gray-700 break-words">{selectedLocation.address}</p>
               {selectedLocation.lat !== 0 && selectedLocation.lng !== 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Coordenadas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                  📍 Coordenadas exactas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
                 </p>
               )}
             </div>

@@ -9,6 +9,12 @@ import { X, MapPin } from 'lucide-react';
 import { Cliente } from '@/lib/database';
 import LocationSelector from '@/components/common/LocationSelector';
 
+interface LocationData {
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 interface ClienteFormProps {
   cliente?: Cliente | null;
   onSubmit: (cliente: any) => void;
@@ -20,7 +26,8 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
     nombre: '',
     direccion: '',
     telefono: '',
-    descripcion: ''
+    descripcion: '',
+    coordenadas: { lat: 0, lng: 0 }
   });
   const [showLocationSelector, setShowLocationSelector] = useState(false);
 
@@ -30,7 +37,8 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
         nombre: cliente.nombre,
         direccion: cliente.direccion,
         telefono: cliente.telefono,
-        descripcion: cliente.descripcion || ''
+        descripcion: cliente.descripcion || '',
+        coordenadas: { lat: 0, lng: 0 } // Por defecto si no hay coordenadas guardadas
       });
     }
   }, [cliente]);
@@ -43,10 +51,14 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
     }));
   };
 
-  const handleDireccionChange = (value: string) => {
+  const handleLocationSelect = (locationData: LocationData) => {
     setFormData(prev => ({
       ...prev,
-      direccion: value
+      direccion: locationData.address,
+      coordenadas: {
+        lat: locationData.lat,
+        lng: locationData.lng
+      }
     }));
   };
 
@@ -58,7 +70,13 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
       return;
     }
 
-    onSubmit(formData);
+    // Incluir coordenadas en los datos del cliente
+    const clienteData = {
+      ...formData,
+      coordenadas: formData.coordenadas
+    };
+
+    onSubmit(clienteData);
   };
 
   return (
@@ -108,6 +126,11 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
                   <MapPin className="h-4 w-4" />
                 </Button>
               </div>
+              {formData.coordenadas.lat !== 0 && formData.coordenadas.lng !== 0 && (
+                <p className="text-xs text-green-600">
+                  📍 Coordenadas: {formData.coordenadas.lat.toFixed(6)}, {formData.coordenadas.lng.toFixed(6)}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 📍 Toca el ícono de ubicación para seleccionar desde el mapa
               </p>
@@ -153,7 +176,7 @@ const ClienteForm: React.FC<ClienteFormProps> = ({ cliente, onSubmit, onCancel }
       <LocationSelector
         isOpen={showLocationSelector}
         onClose={() => setShowLocationSelector(false)}
-        onSelectLocation={handleDireccionChange}
+        onSelectLocation={handleLocationSelect}
         currentValue={formData.direccion}
       />
     </>

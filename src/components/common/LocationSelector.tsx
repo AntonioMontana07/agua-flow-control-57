@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MapPin, Search, Loader2, Navigation } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, MapPinPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -36,6 +35,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   currentValue
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [manualAddress, setManualAddress] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
@@ -276,6 +276,29 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  // Establecer ubicación manualmente
+  const setManualLocation = () => {
+    if (!manualAddress.trim()) {
+      toast({
+        title: "❌ Dirección vacía",
+        description: "Por favor ingresa una dirección",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSelectedLocation({
+      lat: 0,
+      lng: 0,
+      address: manualAddress.trim()
+    });
+
+    toast({
+      title: "📍 Ubicación establecida",
+      description: "Dirección establecida manualmente"
+    });
+  };
+
   // Confirmar selección
   const confirmSelection = () => {
     if (selectedLocation) {
@@ -308,6 +331,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
+      setManualAddress('');
       setSelectedLocation(null);
       setIsLoadingMap(true);
     }
@@ -321,7 +345,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <DialogTitle>🗺️ Seleccionar Ubicación</DialogTitle>
           </DialogHeader>
           
-          <div className="p-4 pb-2 border-b">
+          <div className="p-4 pb-2 border-b space-y-3">
+            {/* Buscador */}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -359,8 +384,30 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 Mi Ubicación
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              💡 Busca una dirección, usa "Mi Ubicación" o haz clic en el mapa
+
+            {/* Establecer ubicación manual */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="O escribe una dirección específica..."
+                value={manualAddress}
+                onChange={(e) => setManualAddress(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && setManualLocation()}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={setManualLocation}
+                disabled={!manualAddress.trim()}
+                className="gap-2"
+              >
+                <MapPinPlus className="h-4 w-4" />
+                Establecer
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              💡 Busca, usa "Mi Ubicación", escribe una dirección específica o haz clic en el mapa
             </p>
           </div>
 
@@ -389,9 +436,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 <span className="font-medium text-sm">Ubicación seleccionada:</span>
               </div>
               <p className="text-sm text-gray-700 break-words">{selectedLocation.address}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Coordenadas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
-              </p>
+              {selectedLocation.lat !== 0 && selectedLocation.lng !== 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Coordenadas: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                </p>
+              )}
             </div>
           )}
 

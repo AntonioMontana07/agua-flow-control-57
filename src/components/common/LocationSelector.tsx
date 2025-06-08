@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,88 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
+
+// Icono personalizado para "yo" (ubicación actual)
+const createPersonIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="
+        background: #3b82f6;
+        border: 3px solid white;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        position: relative;
+      ">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </div>
+      <div style="
+        position: absolute;
+        top: 45px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(59, 130, 246, 0.9);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+      ">yo</div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    className: 'custom-person-icon'
+  });
+};
+
+// Icono personalizado para "ubicación seleccionada"
+const createSelectedLocationIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="
+        background: #ef4444;
+        border: 3px solid white;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        position: relative;
+      ">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+      </div>
+      <div style="
+        position: absolute;
+        top: 45px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(239, 68, 68, 0.9);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+        white-space: nowrap;
+      ">ubicación seleccionada</div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    className: 'custom-selected-icon'
+  });
+};
 
 interface LocationData {
   address: string;
@@ -49,7 +132,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const selectedMarkerRef = useRef<L.Marker | null>(null);
+  const currentLocationMarkerRef = useRef<L.Marker | null>(null);
 
   // Inicializar mapa con Leaflet
   const initializeMap = async () => {
@@ -73,13 +157,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         maxZoom: 19
       }).addTo(map);
 
-      // Agregar marcador en la ubicación actual
-      const currentLocationMarker = L.marker([lat, lng])
+      // Agregar marcador "yo" (ubicación actual fija)
+      const personIcon = createPersonIcon();
+      const currentLocationMarker = L.marker([lat, lng], { icon: personIcon })
         .addTo(map)
-        .bindPopup('📍 Tu ubicación actual')
-        .openPopup();
+        .bindPopup('📍 Tu ubicación actual');
 
-      markerRef.current = currentLocationMarker;
+      currentLocationMarkerRef.current = currentLocationMarker;
+
+      // Agregar marcador de "ubicación seleccionada" (inicialmente en la misma posición)
+      const selectedIcon = createSelectedLocationIcon();
+      const selectedMarker = L.marker([lat, lng], { icon: selectedIcon })
+        .addTo(map)
+        .bindPopup('🎯 Ubicación seleccionada');
+
+      selectedMarkerRef.current = selectedMarker;
 
       // Obtener dirección de la ubicación actual
       const address = await reverseGeocode(lat, lng);
@@ -91,11 +183,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         console.log(`🎯 Click en mapa: ${clickLat}, ${clickLng}`);
 
         try {
-          // Mover marcador a la nueva ubicación
-          if (markerRef.current) {
-            markerRef.current.setLatLng([clickLat, clickLng]);
-          } else {
-            markerRef.current = L.marker([clickLat, clickLng]).addTo(map);
+          // Mover SOLO el marcador de ubicación seleccionada
+          if (selectedMarkerRef.current) {
+            selectedMarkerRef.current.setLatLng([clickLat, clickLng]);
           }
 
           // Obtener dirección de la nueva ubicación
@@ -162,7 +252,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     });
   };
 
-  // Geocodificación inversa usando Nominatim
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     try {
       const response = await fetch(
@@ -202,11 +291,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         if (mapRef.current) {
           mapRef.current.setView([lat, lng], 16);
           
-          // Mover marcador
-          if (markerRef.current) {
-            markerRef.current.setLatLng([lat, lng]);
-          } else {
-            markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+          // Mover SOLO el marcador de ubicación seleccionada
+          if (selectedMarkerRef.current) {
+            selectedMarkerRef.current.setLatLng([lat, lng]);
           }
         }
         
@@ -253,11 +340,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       if (mapRef.current) {
         mapRef.current.setView([latitude, longitude], 16);
         
-        // Mover marcador
-        if (markerRef.current) {
-          markerRef.current.setLatLng([latitude, longitude]);
-        } else {
-          markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
+        // Mover SOLO el marcador de ubicación seleccionada a la ubicación actual
+        if (selectedMarkerRef.current) {
+          selectedMarkerRef.current.setLatLng([latitude, longitude]);
         }
       }
       
@@ -284,7 +369,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   // Confirmar selección con coordenadas exactas
   const confirmSelection = () => {
     if (selectedLocation) {
-      // Enviar coordenadas exactas en lugar de la dirección
       const locationData: LocationData = {
         address: `${selectedLocation.lat.toFixed(6)}, ${selectedLocation.lng.toFixed(6)}`,
         lat: selectedLocation.lat,
@@ -313,7 +397,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         console.log('🧹 Limpiando mapa Leaflet...');
         mapRef.current.remove();
         mapRef.current = null;
-        markerRef.current = null;
+        selectedMarkerRef.current = null;
+        currentLocationMarkerRef.current = null;
       }
     };
   }, [isOpen]);
